@@ -1,0 +1,12 @@
+/* src/app/layouts/auth-layout/auth-layout.component.css */
+
+:host {
+  display: block;
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* Simple white background */
+.bg-white {
+  background-color: #ffffff;
+}
