@@ -18,6 +18,7 @@ import {
   Search,
   Bell,
   ClipboardMinus,
+  LogOut
 } from 'lucide-angular';
 import { AuthService } from '../../services/auth.service';
 

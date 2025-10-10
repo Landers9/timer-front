@@ -60,11 +60,7 @@
         class="sidebar-item w-full text-left hover:bg-red-50 hover:text-error transition-colors"
         [class.justify-center]="!isSidebarOpen()"
       >
-        <!-- <lucide-angular
-          name="power"
-          [size]="18"
-          class="shrink-0"
-        ></lucide-angular> -->
+        <lucide-icon name="log-out" [size]="18"></lucide-icon>
         @if (isSidebarOpen()) {
         <span class="truncate">Logout</span>
         }
@@ -139,7 +135,7 @@
                 '&background=FFC300&color=1A1A1A&bold=true'
               "
               [alt]="user.firstName"
-              class="avatar cursor-pointer"
+              class="avatar cursor-pointer rounded-md"
             />
           </div>
           }

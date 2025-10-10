@@ -78,7 +78,7 @@
   }
 
   .search-input {
-    @apply pl-9 pr-4 py-2 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-gray-50 text-dark-900 placeholder-gray-400 w-full max-w-md;
+    @apply pl-2 pr-4 py-2 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-gray-50 text-dark-900 placeholder-gray-400 w-full max-w-md;
   }
 
   /* Sidebar */

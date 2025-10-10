@@ -1,0 +1,112 @@
+/* src/app/pages/reports/reports.component.css */
+
+:host {
+  display: block;
+  background-color: #f9fafb;
+  min-height: 100vh;
+}
+
+/* Better button styles */
+button {
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.375rem;
+  transition: all 0.2s ease-in-out;
+}
+
+button:not(.btn-icon) {
+  padding: 0.625rem 1.25rem;
+}
+
+button:hover {
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+/* Table styles */
+table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+/* KPI Cards hover effect */
+.bg-white {
+  transition: all 0.2s ease-in-out;
+}
+
+.bg-white:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+/* Progress bar animation */
+.h-2 > div {
+  transition: width 0.5s ease-in-out;
+}
+
+/* Badge styles */
+.badge-secondary {
+  background-color: #E3E3E3;
+  color: #434343;
+}
+
+.badge-success {
+  background-color: #D1FAE5;
+  color: #065F46;
+}
+
+.badge-info {
+  background-color: #DBEAFE;
+  color: #1E40AF;
+}
+
+.badge-warning {
+  background-color: #FEF3C7;
+  color: #92400E;
+}
+
+.badge-error {
+  background-color: #FEE2E2;
+  color: #991B1B;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.grid > div {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Custom scrollbar for tables */
+.overflow-x-auto::-webkit-scrollbar {
+  height: 6px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 3px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-thumb:hover {
+  background: #a0aec0;
+}

@@ -47,6 +47,20 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./pages/teams/teams.component').then((m) => m.TeamsComponent),
       },
+      {
+        path: 'reports',
+        loadComponent: () =>
+          import('./pages/reports/reports.component').then(
+            (m) => m.ReportsComponent
+          ),
+      },
+      {
+        path: 'profile',
+        loadComponent: () =>
+          import('./pages/profile/profile.component').then(
+            (m) => m.ProfileComponent
+          ),
+      },
     ],
   },
 

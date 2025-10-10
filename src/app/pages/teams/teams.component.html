@@ -1,1 +1,385 @@
-<p>teams works!</p>
+<!-- src/app/pages/teams/teams.component.html -->
+
+<div class="p-6 space-y-6">
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold text-dark-900">Gestion des équipes</h1>
+      <p class="text-sm text-dark-600 mt-1">
+        {{ filteredTeams().length }} équipe(s)
+      </p>
+    </div>
+
+    <button (click)="openCreateModal()" class="btn-primary">
+      <lucide-angular [img]="UsersIcon" class="w-5 h-5"></lucide-angular>
+      <span>Créer une équipe</span>
+    </button>
+  </div>
+
+  <!-- Search -->
+  <div class="bg-white rounded-lg border border-gray-200 p-4">
+    <div class="relative max-w-md">
+      <input
+        type="text"
+        [(ngModel)]="searchQuery"
+        placeholder="Rechercher une équipe..."
+        class="search-input"
+      />
+    </div>
+  </div>
+
+  <!-- Teams Table -->
+  <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full">
+        <thead class="bg-gray-50 border-b border-gray-200">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">
+              Nom de l'équipe
+            </th>
+            <th class="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">
+              Description
+            </th>
+            <th class="px-6 py-3 text-center text-xs font-semibold text-dark-600 uppercase tracking-wider">
+              Membres
+            </th>
+            <th class="px-6 py-3 text-right text-xs font-semibold text-dark-600 uppercase tracking-wider">
+              Actions
+            </th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200">
+          <tr
+            *ngFor="let team of filteredTeams()"
+            class="hover:bg-gray-50 transition-colors"
+          >
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="text-sm font-medium text-dark-900">
+                {{ team.name }}
+              </div>
+            </td>
+            <td class="px-6 py-4">
+              <div class="text-sm text-dark-600">{{ team.description }}</div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-center">
+              <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary-100 text-primary-700 text-sm font-semibold">
+                {{ getMemberCount(team) }}
+              </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+              <div class="flex items-center justify-end gap-2">
+                <button
+                  (click)="openDetailsModal(team)"
+                  class="btn-icon"
+                  title="Voir les détails"
+                >
+                  <lucide-angular [img]="EyeIcon" class="w-4 h-4"></lucide-angular>
+                </button>
+                <button
+                  (click)="openEditModal(team)"
+                  class="btn-icon"
+                  title="Modifier"
+                >
+                  <lucide-angular [img]="EditIcon" class="w-4 h-4"></lucide-angular>
+                </button>
+                <button
+                  (click)="openDeleteModal(team)"
+                  class="btn-icon text-error hover:bg-red-50"
+                  title="Supprimer"
+                >
+                  <lucide-angular [img]="Trash2Icon" class="w-4 h-4"></lucide-angular>
+                </button>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Empty State -->
+          <tr *ngIf="filteredTeams().length === 0">
+            <td colspan="4" class="px-6 py-12 text-center">
+              <p class="text-dark-600">Aucune équipe trouvée</p>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Create Modal -->
+<div
+  *ngIf="showCreateModal()"
+  class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+  (click)="closeModals()"
+>
+  <div
+    class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="flex items-center justify-between p-6 border-b border-gray-200">
+      <h2 class="text-xl font-semibold text-dark-900">Nouvelle équipe</h2>
+      <button (click)="closeModals()" class="btn-icon">
+        <lucide-angular [img]="XIcon" class="w-5 h-5"></lucide-angular>
+      </button>
+    </div>
+
+    <form (ngSubmit)="createTeam()" class="p-6 space-y-4">
+      <div>
+        <label class="input-label">Nom de l'équipe</label>
+        <input
+          type="text"
+          [(ngModel)]="formData().name"
+          name="name"
+          required
+          class="input-field"
+          placeholder="Équipe Développement"
+        />
+      </div>
+
+      <div>
+        <label class="input-label">Description</label>
+        <textarea
+          [(ngModel)]="formData().description"
+          name="description"
+          required
+          rows="3"
+          class="input-field"
+          placeholder="Description de l'équipe..."
+        ></textarea>
+      </div>
+
+      <div class="flex gap-3 pt-4">
+        <button type="button" (click)="closeModals()" class="btn-secondary flex-1">
+          Annuler
+        </button>
+        <button type="submit" class="btn-primary flex-1">
+          Créer
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div
+  *ngIf="showEditModal()"
+  class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+  (click)="closeModals()"
+>
+  <div
+    class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="flex items-center justify-between p-6 border-b border-gray-200">
+      <h2 class="text-xl font-semibold text-dark-900">Modifier l'équipe</h2>
+      <button (click)="closeModals()" class="btn-icon">
+        <lucide-angular [img]="XIcon" class="w-5 h-5"></lucide-angular>
+      </button>
+    </div>
+
+    <form (ngSubmit)="updateTeam()" class="p-6 space-y-4">
+      <div>
+        <label class="input-label">Nom de l'équipe</label>
+        <input
+          type="text"
+          [(ngModel)]="formData().name"
+          name="name"
+          required
+          class="input-field"
+        />
+      </div>
+
+      <div>
+        <label class="input-label">Description</label>
+        <textarea
+          [(ngModel)]="formData().description"
+          name="description"
+          required
+          rows="3"
+          class="input-field"
+        ></textarea>
+      </div>
+
+      <div class="flex gap-3 pt-4">
+        <button type="button" (click)="closeModals()" class="btn-secondary flex-1">
+          Annuler
+        </button>
+        <button type="submit" class="btn-primary flex-1">
+          Enregistrer
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Delete Modal -->
+<div
+  *ngIf="showDeleteModal()"
+  class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+  (click)="closeModals()"
+>
+  <div
+    class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="p-6">
+      <h2 class="text-xl font-semibold text-dark-900 mb-4">Confirmer la suppression</h2>
+      <p class="text-dark-600 mb-6">
+        Êtes-vous sûr de vouloir supprimer l'équipe
+        <span class="font-semibold">{{ selectedTeam()?.name }}</span> ?
+        Cette action est irréversible.
+      </p>
+
+      <div class="flex gap-3">
+        <button (click)="closeModals()" class="btn-secondary flex-1">
+          Annuler
+        </button>
+        <button (click)="deleteTeam()" class="btn-primary bg-error hover:bg-red-700 flex-1">
+          Supprimer
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Details Modal with Members Management -->
+<div
+  *ngIf="showDetailsModal()"
+  class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+  (click)="closeModals()"
+>
+  <div
+    class="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="flex items-center justify-between p-6 border-b border-gray-200">
+      <h2 class="text-xl font-semibold text-dark-900">
+        Détails de {{ selectedTeam()?.name }}
+      </h2>
+      <button (click)="closeModals()" class="btn-icon">
+        <lucide-angular [img]="XIcon" class="w-5 h-5"></lucide-angular>
+      </button>
+    </div>
+
+    <div class="flex-1 overflow-y-auto p-6 space-y-6">
+      <!-- Team Info -->
+      <div>
+        <p class="text-xs text-dark-600 font-medium mb-1">Description</p>
+        <p class="text-sm text-dark-900">{{ selectedTeam()?.description }}</p>
+      </div>
+
+      <!-- Team Members -->
+      <div>
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-dark-900 flex items-center gap-2">
+            <lucide-angular [img]="UsersIcon" class="w-5 h-5"></lucide-angular>
+            Membres de l'équipe ({{ teamMembers().length }})
+          </h3>
+          <button
+            (click)="openAddMemberModal()"
+            class="btn-primary btn-sm"
+            [disabled]="availableUsers().length === 0"
+          >
+            <lucide-angular [img]="UserPlusIcon" class="w-4 h-4"></lucide-angular>
+            <span>Ajouter un membre</span>
+          </button>
+        </div>
+
+        <div class="border border-gray-200 rounded-lg overflow-hidden">
+          <table class="w-full">
+            <thead class="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-dark-600 uppercase">
+                  Nom
+                </th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-dark-600 uppercase">
+                  Email
+                </th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-dark-600 uppercase">
+                  Rôle
+                </th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-dark-600 uppercase">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+              <tr *ngFor="let member of teamMembers()" class="hover:bg-gray-50">
+                <td class="px-4 py-3 text-sm font-medium text-dark-900">
+                  {{ getUserFullName(member) }}
+                </td>
+                <td class="px-4 py-3 text-sm text-dark-600">
+                  {{ member.email }}
+                </td>
+                <td class="px-4 py-3">
+                  <span [class]="'badge ' + getRoleBadgeClass(member.role)">
+                    {{ member.role === 'manager' ? 'Manager' : 'Employé' }}
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-right">
+                  <button
+                    (click)="removeMemberFromTeam(member.id)"
+                    class="btn-icon text-error hover:bg-red-50"
+                    title="Retirer de l'équipe"
+                  >
+                    <lucide-angular [img]="UserMinusIcon" class="w-4 h-4"></lucide-angular>
+                  </button>
+                </td>
+              </tr>
+
+              <!-- Empty State -->
+              <tr *ngIf="teamMembers().length === 0">
+                <td colspan="4" class="px-4 py-8 text-center text-dark-600">
+                  Aucun membre dans cette équipe
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Member Modal -->
+<div
+  *ngIf="showAddMemberModal()"
+  class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]"
+  (click)="closeModals()"
+>
+  <div
+    class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="flex items-center justify-between p-6 border-b border-gray-200">
+      <h2 class="text-xl font-semibold text-dark-900">Ajouter un membre</h2>
+      <button (click)="closeModals()" class="btn-icon">
+        <lucide-angular [img]="XIcon" class="w-5 h-5"></lucide-angular>
+      </button>
+    </div>
+
+    <div class="p-6 space-y-4">
+      <div>
+        <label class="input-label">Sélectionner un utilisateur</label>
+        <select [(ngModel)]="selectedUserId" class="input-field">
+          <option [value]="null">-- Choisir un utilisateur --</option>
+          <option *ngFor="let user of availableUsers()" [value]="user.id">
+            {{ getUserFullName(user) }} ({{ user.email }})
+          </option>
+        </select>
+      </div>
+
+      <div class="flex gap-3 pt-4">
+        <button (click)="closeModals()" class="btn-secondary flex-1">
+          Annuler
+        </button>
+        <button
+          (click)="addMemberToTeam()"
+          [disabled]="!selectedUserId()"
+          class="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Ajouter
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

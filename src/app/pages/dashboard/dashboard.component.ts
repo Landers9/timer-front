@@ -17,6 +17,7 @@ import {
   Clock,
   TrendingUp,
   TrendingDown,
+  Calendar,
 } from 'lucide-angular';
 import { Chart, ChartConfiguration } from 'chart.js';
 import { AuthService } from '../../services/auth.service';
@@ -74,6 +75,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly ClockIcon = Clock;
   readonly TrendingUpIcon = TrendingUp;
   readonly TrendingDownIcon = TrendingDown;
+  readonly CalendarIcon = Calendar;
 
   // Date
   currentDate = signal(new Date());
@@ -589,5 +591,11 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     this.attendanceChart.data.datasets[0].borderColor = color;
     this.attendanceChart.data.datasets[0].backgroundColor = `${color}1A`;
     this.attendanceChart.update();
+  }
+
+  exportReport(): void {
+    console.log('Exporting report...');
+    // TODO: Implement export functionality
+    alert('Export de rapport - Fonctionnalité à implémenter');
   }
 }
