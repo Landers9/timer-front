@@ -1,299 +1,283 @@
 <!-- src/app/pages/dashboard/dashboard.component.html -->
-<div class="space-y-6 animate-fade-in max-w-[1600px] mx-auto">
-  <!-- Header: Date, Time Tracker & Filters -->
-  <div class="flex flex-col gap-4">
-    <!-- Date & Time Tracker -->
-    <div
-      class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"
-    >
-      <div>
-        <h2 class="text-3xl font-semibold text-dark-900 mb-1">Today</h2>
-        <p class="text-sm text-dark-600">
-          {{ formatDate(currentDate()) }} | {{ formatTime(currentDate()) }}
-        </p>
-      </div>
 
-      <button
-        (click)="toggleTimeTracker()"
-        [class.bg-error]="isTracking()"
-        [class.hover:bg-red-600]="isTracking()"
-        [class.bg-primary-500]="!isTracking()"
-        [class.hover:bg-primary-600]="!isTracking()"
-        class="btn w-full lg:w-auto px-8 py-3 text-dark-900 font-semibold shadow-sm"
-      >
-        <lucide-angular
-          [name]="isTracking() ? 'pause-circle' : 'play'"
-          [size]="20"
-        ></lucide-angular>
-        <span>{{ isTracking() ? "Stop Tracking" : "Start Tracking" }}</span>
-      </button>
+<div class="p-6 space-y-6">
+  <!-- Header: Date + Clock Button -->
+  <div class="flex items-center justify-between">
+    <!-- Date -->
+    <div>
+      <h1 class="text-2xl font-semibold text-dark-900 capitalize">
+        {{ formattedDate() }}
+      </h1>
+      <p class="text-sm text-dark-600 mt-1">
+        Bienvenue, <span class="font-medium">{{ userName() }}</span>
+      </p>
     </div>
 
-    <!-- Filters -->
-    <div class="card">
-      <div class="flex flex-col sm:flex-row gap-3">
-        <!-- Period Filter (Everyone) -->
-        <div class="flex-1">
-          <label class="input-label">Period</label>
-          <div class="flex gap-2">
-            @for (period of periods; track period) {
-            <button
-              (click)="onPeriodChange(period)"
-              [class.bg-primary-500]="selectedPeriod() === period"
-              [class.text-dark-900]="selectedPeriod() === period"
-              [class.bg-gray-100]="selectedPeriod() !== period"
-              [class.text-dark-600]="selectedPeriod() !== period"
-              class="btn text-xs px-4 py-2 capitalize"
-            >
-              {{ period }}
-            </button>
-            }
-          </div>
-        </div>
+    <!-- Clock In/Out Button -->
+    <button
+      (click)="toggleClock()"
+      [class.bg-success]="isTracking()"
+      [class.bg-primary-500]="!isTracking()"
+      class="px-6 py-3 rounded-lg text-dark-900 font-semibold shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2"
+    >
+      <lucide-angular [img]="ClockIcon" class="w-5 h-5"></lucide-angular>
+      <span>{{ isTracking() ? 'Pointer la sortie' : 'Pointer l\'arrivée' }}</span>
+    </button>
+  </div>
 
-        <!-- Team & User Filters (Manager only) -->
-        @if (isManager()) {
-        <div class="flex-1">
-          <label class="input-label">Team</label>
-          <select (change)="onTeamChange($event)" class="input-field">
-            <option value="">All Teams</option>
-            @for (team of teams(); track team.id) {
-            <option [value]="team.id">{{ team.name }}</option>
-            }
-          </select>
-        </div>
+  <!-- Filters Section (Manager Only) -->
+  <div *ngIf="isManager()" class="bg-white rounded-lg border border-gray-200 p-5">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-base font-semibold text-dark-900">
+        Filtres d'analyse
+      </h3>
 
-        <div class="flex-1">
-          <label class="input-label">User</label>
-          <select
-            (change)="onUserChange($event)"
-            [disabled]="!selectedTeam()"
-            class="input-field"
+      <!-- Toggle Button: Work / Break -->
+      <div class="inline-flex rounded-lg border border-gray-200 p-1 bg-gray-50">
+        <button
+          (click)="dataView.set('work')"
+          [class.bg-white]="dataView() === 'work'"
+          [class.shadow-sm]="dataView() === 'work'"
+          [class.text-dark-900]="dataView() === 'work'"
+          [class.text-dark-600]="dataView() !== 'work'"
+          class="px-4 py-2 text-sm font-medium rounded-md transition-all duration-200"
+        >
+          Temps de travail
+        </button>
+        <button
+          (click)="dataView.set('break')"
+          [class.bg-white]="dataView() === 'break'"
+          [class.shadow-sm]="dataView() === 'break'"
+          [class.text-dark-900]="dataView() === 'break'"
+          [class.text-dark-600]="dataView() !== 'break'"
+          class="px-4 py-2 text-sm font-medium rounded-md transition-all duration-200"
+        >
+          Temps de pause
+        </button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- Filter Type: Teams or Employees -->
+      <div>
+        <label class="input-label">Type de données</label>
+        <select
+          [(ngModel)]="filterType"
+          (ngModelChange)="onFilterTypeChange()"
+          class="input-field"
+        >
+          <option value="teams">Équipes</option>
+          <option value="employees">Employés</option>
+        </select>
+      </div>
+
+      <!-- Entity Selection -->
+      <div>
+        <label class="input-label">
+          {{ filterType() === 'teams' ? 'Sélectionner une équipe' : 'Sélectionner un employé' }}
+        </label>
+        <select
+          [value]="selectedEntityId() ?? ''"
+          (change)="onEntityChange($event)"
+          class="input-field"
+        >
+          <option value="">Tous</option>
+          <option
+            *ngFor="let entity of entitiesList()"
+            [value]="entity.id"
           >
-            <option value="">All Users</option>
-            @for (user of users(); track user.id) {
-            <option [value]="user.id">{{ user.name }}</option>
-            }
-          </select>
-        </div>
-        }
+            {{ getEntityDisplayName(entity) }}
+          </option>
+        </select>
+      </div>
+
+      <!-- Start Date -->
+      <div>
+        <label class="input-label">Date de début</label>
+        <input
+          type="date"
+          [(ngModel)]="startDate"
+          class="input-field"
+        />
+      </div>
+
+      <!-- End Date -->
+      <div>
+        <label class="input-label">Date de fin</label>
+        <input
+          type="date"
+          [(ngModel)]="endDate"
+          class="input-field"
+        />
       </div>
     </div>
   </div>
 
   <!-- Stats Cards -->
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <!-- Stat 1 -->
     <div class="card-stat">
-      <div class="min-w-0 flex-1">
-        <h3 class="text-xs font-medium text-dark-500 mb-1">Hours Worked</h3>
-        <p class="text-2xl font-semibold text-dark-900">
-          {{ stats().hoursWorked }}h
+      <div>
+        <p class="text-xs text-dark-600 font-medium">{{ currentStats().label1 }}</p>
+        <p class="text-2xl font-bold text-dark-900 mt-1">
+          {{ currentStats().value1 }}
         </p>
       </div>
-      <div class="stat-icon-bg">
-        <lucide-angular name="clock" [size]="22"></lucide-angular>
+      <div
+        [class.bg-primary-100]="dataView() === 'work'"
+        [class.bg-blue-100]="dataView() === 'break'"
+        class="w-12 h-12 rounded-full flex items-center justify-center"
+      >
+        <lucide-angular
+          [img]="ClockIcon"
+          [class.text-primary-700]="dataView() === 'work'"
+          [class.text-blue-700]="dataView() === 'break'"
+          class="w-6 h-6"
+        ></lucide-angular>
       </div>
     </div>
 
+    <!-- Stat 2 -->
     <div class="card-stat">
-      <div class="min-w-0 flex-1">
-        <h3 class="text-xs font-medium text-dark-500 mb-1">Pauses Taken</h3>
-        <p class="text-2xl font-semibold text-dark-900">
-          {{ stats().pausesTaken }}
+      <div>
+        <p class="text-xs text-dark-600 font-medium">{{ currentStats().label2 }}</p>
+        <p class="text-2xl font-bold text-dark-900 mt-1">
+          {{ currentStats().value2 }}
         </p>
       </div>
-      <div class="stat-icon-bg">
-        <lucide-angular name="coffee" [size]="22"></lucide-angular>
+      <div
+        [class.bg-success]="currentStats().trend === 'up'"
+        [class.bg-error]="currentStats().trend === 'down'"
+        [class.bg-gray-100]="currentStats().trend === 'stable'"
+        class="w-12 h-12 rounded-full flex items-center justify-center bg-opacity-20"
+      >
+        <lucide-angular
+          *ngIf="currentStats().trend === 'up'"
+          [img]="TrendingUpIcon"
+          class="w-6 h-6 text-success"
+        ></lucide-angular>
+        <lucide-angular
+          *ngIf="currentStats().trend === 'down'"
+          [img]="TrendingDownIcon"
+          class="w-6 h-6 text-error"
+        ></lucide-angular>
+        <svg
+          *ngIf="currentStats().trend === 'stable'"
+          class="w-6 h-6 text-gray-500"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14"></path>
+        </svg>
       </div>
     </div>
 
+    <!-- Stat 3 -->
     <div class="card-stat">
-      <div class="min-w-0 flex-1">
-        <h3 class="text-xs font-medium text-dark-500 mb-1">Avg Arrival</h3>
-        <p class="text-2xl font-semibold text-dark-900">
-          {{ stats().avgArrival }}
+      <div>
+        <p class="text-xs text-dark-600 font-medium">{{ currentStats().label3 }}</p>
+        <p class="text-2xl font-bold text-dark-900 mt-1">
+          {{ currentStats().value3 }}
         </p>
       </div>
-      <div class="stat-icon-bg">
-        <lucide-angular name="log-in" [size]="22"></lucide-angular>
+      <div
+        [class.bg-success]="dataView() === 'work'"
+        [class.bg-warning]="dataView() === 'break'"
+        class="w-12 h-12 rounded-full flex items-center justify-center bg-opacity-20"
+      >
+        <svg
+          [class.text-success]="dataView() === 'work'"
+          [class.text-warning]="dataView() === 'break'"
+          class="w-6 h-6"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
       </div>
     </div>
 
+    <!-- Stat 4 -->
     <div class="card-stat">
-      <div class="min-w-0 flex-1">
-        <h3 class="text-xs font-medium text-dark-500 mb-1">Avg Departure</h3>
-        <p class="text-2xl font-semibold text-dark-900">
-          {{ stats().avgDeparture }}
+      <div>
+        <p class="text-xs text-dark-600 font-medium">{{ currentStats().label4 }}</p>
+        <p class="text-2xl font-bold text-dark-900 mt-1">
+          {{ currentStats().value4 }}
         </p>
       </div>
-      <div class="stat-icon-bg">
-        <lucide-angular name="log-out" [size]="22"></lucide-angular>
-      </div>
-    </div>
-
-    <div class="card-stat">
-      <div class="min-w-0 flex-1">
-        <h3 class="text-xs font-medium text-dark-500 mb-1">Attendance Rate</h3>
-        <p class="text-2xl font-semibold text-dark-900">
-          {{ stats().attendanceRate }}%
-        </p>
-      </div>
-      <div class="stat-icon-bg">
-        <lucide-angular name="check" [size]="22"></lucide-angular>
+      <div class="w-12 h-12 rounded-full bg-info bg-opacity-20 flex items-center justify-center">
+        <svg class="w-6 h-6 text-info" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
       </div>
     </div>
   </div>
 
-  <!-- Charts -->
+  <!-- Charts Section -->
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    <!-- Hours Worked Chart -->
+    <!-- Hours Chart -->
     <div class="card">
-      <div class="section-header">
-        <h3 class="section-title">Hours Worked</h3>
-        <button class="btn-icon">
-          <lucide-angular name="ellipsis-vertical" [size]="18"></lucide-angular>
-        </button>
+      <div class="flex items-center justify-between mb-6">
+        <h3 class="text-lg font-semibold text-dark-900">
+          {{ dataView() === 'work' ? 'Heures travaillées' : 'Heures de pause' }}
+        </h3>
+
+        <!-- Period Selector -->
+        <select
+          [(ngModel)]="hoursPeriod"
+          class="px-3 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+        >
+          <option value="day">Jour</option>
+          <option value="week">Semaine</option>
+          <option value="month">Mois</option>
+          <option value="year">Année</option>
+        </select>
       </div>
-      <div class="h-64 relative">
+
+      <div class="h-64">
         <canvas #hoursChart></canvas>
       </div>
     </div>
 
-    <!-- Pause Duration Chart -->
+    <!-- Rate Chart -->
     <div class="card">
-      <div class="section-header">
-        <h3 class="section-title">Pause Duration</h3>
-        <button class="btn-icon">
-          <lucide-angular name="ellipsis-vertical" [size]="18"></lucide-angular>
-        </button>
+      <div class="flex items-center justify-between mb-6">
+        <h3 class="text-lg font-semibold text-dark-900">
+          {{ dataView() === 'work' ? 'Taux de présence' : 'Conformité des pauses' }}
+        </h3>
+
+        <!-- Period Selector -->
+        <select
+          [(ngModel)]="attendancePeriod"
+          class="px-3 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+        >
+          <option value="day">Jour</option>
+          <option value="week">Semaine</option>
+          <option value="month">Mois</option>
+          <option value="year">Année</option>
+        </select>
       </div>
-      <div class="h-64 relative">
-        <canvas #pauseChart></canvas>
+
+      <div class="h-64">
+        <canvas #attendanceChart></canvas>
       </div>
     </div>
   </div>
 
-  <!-- Weekly History Table -->
-  <div class="card">
-    <div class="section-header">
-      <h3 class="section-title">Weekly History</h3>
-      <button class="btn-secondary text-xs flex items-center gap-1 px-3 py-1">
-        <lucide-angular name="download" [size]="16"></lucide-angular>
-        <span>Export</span>
-      </button>
-    </div>
-
-    <!-- Desktop Table -->
-    <div class="hidden md:block overflow-x-auto">
-      <table class="w-full">
-        <thead>
-          <tr class="border-b border-gray-200">
-            <th class="table-header text-left py-3">Day</th>
-            <th class="table-header text-left py-3">Date</th>
-            <th class="table-header text-left py-3">Clock In</th>
-            <th class="table-header text-left py-3">Clock Out</th>
-            <th class="table-header text-left py-3">Pause Start</th>
-            <th class="table-header text-left py-3">Pause End</th>
-            <th class="table-header text-right py-3">Total Hours</th>
-            <th class="table-header text-center py-3">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (record of weeklyHistory(); track record.id) {
-          <tr
-            class="border-b border-gray-100 hover:bg-gray-50 transition-colors"
-          >
-            <td class="py-3 text-sm font-medium text-dark-900">
-              {{ getDayName(record.date) }}
-            </td>
-            <td class="py-3 text-sm text-dark-600">
-              {{ record.date | date : "MMM dd, yyyy" }}
-            </td>
-            <td class="py-3 text-sm font-mono text-dark-700">
-              {{ record.clockIn }}
-            </td>
-            <td class="py-3 text-sm font-mono text-dark-700">
-              {{ record.clockOut }}
-            </td>
-            <td class="py-3 text-sm font-mono text-dark-700">
-              {{ record.pauseStart || "-" }}
-            </td>
-            <td class="py-3 text-sm font-mono text-dark-700">
-              {{ record.pauseEnd || "-" }}
-            </td>
-            <td
-              class="py-3 text-sm font-semibold text-right {{
-                getStatusColor(record.status)
-              }}"
-            >
-              {{ record.totalHours }}h
-            </td>
-            <td class="py-3 text-center">
-              <span
-                class="inline-flex items-center px-2 py-1 text-xs font-medium rounded {{
-                  getStatusBadge(record.status)
-                }}"
-              >
-                {{ record.status }}
-              </span>
-            </td>
-          </tr>
-          }
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Mobile Cards -->
-    <div class="md:hidden space-y-3">
-      @for (record of weeklyHistory(); track record.id) {
-      <div class="border border-gray-200 rounded p-4 space-y-2">
-        <div class="flex items-center justify-between mb-2">
-          <div>
-            <p class="font-semibold text-sm text-dark-900">
-              {{ getDayName(record.date) }}
-            </p>
-            <p class="text-xs text-dark-500">
-              {{ record.date | date : "MMM dd, yyyy" }}
-            </p>
-          </div>
-          <span
-            class="inline-flex items-center px-2 py-1 text-xs font-medium rounded {{
-              getStatusBadge(record.status)
-            }}"
-          >
-            {{ record.status }}
-          </span>
-        </div>
-
-        <div class="grid grid-cols-2 gap-2 text-xs">
-          <div>
-            <span class="text-dark-500">Clock In:</span>
-            <p class="font-mono text-dark-900">{{ record.clockIn }}</p>
-          </div>
-          <div>
-            <span class="text-dark-500">Clock Out:</span>
-            <p class="font-mono text-dark-900">{{ record.clockOut }}</p>
-          </div>
-          <div>
-            <span class="text-dark-500">Pause Start:</span>
-            <p class="font-mono text-dark-900">
-              {{ record.pauseStart || "-" }}
-            </p>
-          </div>
-          <div>
-            <span class="text-dark-500">Pause End:</span>
-            <p class="font-mono text-dark-900">{{ record.pauseEnd || "-" }}</p>
-          </div>
-        </div>
-
-        <div class="pt-2 border-t border-gray-100">
-          <span class="text-dark-500 text-xs">Total Hours:</span>
-          <p class="font-semibold {{ getStatusColor(record.status) }}">
-            {{ record.totalHours }}h
-          </p>
-        </div>
+  <!-- Info Message for Employees -->
+  <div *ngIf="!isManager()" class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+    <div class="flex items-start gap-3">
+      <svg class="w-5 h-5 text-info mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+      </svg>
+      <div>
+        <p class="text-sm font-medium text-info">Dashboard personnel</p>
+        <p class="text-sm text-dark-600 mt-1">
+          Les statistiques affichées concernent uniquement vos données personnelles.
+        </p>
       </div>
-      }
     </div>
   </div>
 </div>

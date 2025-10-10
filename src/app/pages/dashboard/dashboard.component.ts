@@ -8,206 +8,292 @@ import {
   ViewChild,
   ElementRef,
   AfterViewInit,
+  effect,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LucideAngularModule } from 'lucide-angular';
+import { FormsModule } from '@angular/forms';
+import {
+  LucideAngularModule,
+  Clock,
+  TrendingUp,
+  TrendingDown,
+} from 'lucide-angular';
 import { Chart, ChartConfiguration } from 'chart.js';
 import { AuthService } from '../../services/auth.service';
 import { ChartService } from '../../services/chart.service';
-import { Timesheet, DashboardStats } from '../../models/timesheet.model';
 
-type Period = 'day' | 'week' | 'month' | 'quarter';
+type FilterType = 'teams' | 'employees';
+type PeriodType = 'day' | 'week' | 'month' | 'year';
+type DataViewType = 'work' | 'break';
+
+interface Team {
+  id: number;
+  name: string;
+}
+
+interface Employee {
+  id: number;
+  firstName: string;
+  lastName: string;
+}
+
+type DisplayEntity = Team | Employee;
+
+interface DashboardStats {
+  totalHours: number;
+  avgHoursPerDay: number;
+  attendanceRate: number;
+  avgArrivalTime: string;
+  trend: 'up' | 'down' | 'stable';
+}
+
+interface BreakStats {
+  totalBreakHours: number;
+  avgBreakPerDay: number;
+  breakComplianceRate: number;
+  avgBreakTime: string;
+  trend: 'up' | 'down' | 'stable';
+}
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule],
+  imports: [CommonModule, FormsModule, LucideAngularModule],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.css',
 })
 export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('hoursChart') hoursChartRef!: ElementRef<HTMLCanvasElement>;
-  @ViewChild('pauseChart') pauseChartRef!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('attendanceChart')
+  attendanceChartRef!: ElementRef<HTMLCanvasElement>;
 
   private hoursChart: Chart | null = null;
-  private pauseChart: Chart | null = null;
+  private attendanceChart: Chart | null = null;
 
-  // Signals
+  // Icons
+  readonly ClockIcon = Clock;
+  readonly TrendingUpIcon = TrendingUp;
+  readonly TrendingDownIcon = TrendingDown;
+
+  // Date
   currentDate = signal(new Date());
+  formattedDate = computed(() => {
+    const date = this.currentDate();
+    return new Intl.DateTimeFormat('fr-FR', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    }).format(date);
+  });
+
+  // Clock in/out state
   isTracking = signal(false);
-  selectedPeriod = signal<Period>('week');
-  selectedTeam = signal<number | null>(null);
-  selectedUser = signal<number | null>(null);
+  lastClockTime = signal<Date | null>(null);
 
-  readonly periods: Period[] = ['day', 'week', 'month', 'quarter'];
-
-  isManager = computed(() => {
-    const user = this.authService.currentUser();
-    return user?.role === 'manager';
+  // User info
+  currentUser = computed(() => this.authService.currentUser());
+  isManager = computed(() => this.currentUser()?.role === 'manager');
+  userName = computed(() => {
+    const user = this.currentUser();
+    return user ? `${user.firstName} ${user.lastName}` : '';
   });
 
+  // Filters
+  filterType = signal<FilterType>('teams');
+  selectedEntityId = signal<number | null>(null);
+  startDate = signal<string>('');
+  endDate = signal<string>('');
+
+  // Period for charts
+  hoursPeriod = signal<PeriodType>('week');
+  attendancePeriod = signal<PeriodType>('week');
+
+  // Data view toggle (work or break)
+  dataView = signal<DataViewType>('work');
+
+  // Data
+  teams = signal<Team[]>([
+    { id: 1, name: 'Équipe Développement' },
+    { id: 2, name: 'Équipe Marketing' },
+    { id: 3, name: 'Équipe Ventes' },
+    { id: 4, name: 'Équipe Support' },
+  ]);
+
+  employees = signal<Employee[]>([
+    { id: 1, firstName: 'Jean', lastName: 'Dupont' },
+    { id: 2, firstName: 'Marie', lastName: 'Martin' },
+    { id: 3, firstName: 'Pierre', lastName: 'Bernard' },
+    { id: 4, firstName: 'Sophie', lastName: 'Dubois' },
+    { id: 5, firstName: 'Luc', lastName: 'Moreau' },
+  ]);
+
+  // Stats
   stats = signal<DashboardStats>({
-    hoursWorked: 40.5,
-    pausesTaken: 5,
-    avgArrival: '08:45',
-    avgDeparture: '17:30',
-    attendanceRate: 95,
+    totalHours: 156.5,
+    avgHoursPerDay: 7.8,
+    attendanceRate: 95.5,
+    avgArrivalTime: '08:42',
+    trend: 'up',
   });
 
-  weeklyHistory = signal<Timesheet[]>([
-    {
-      id: 1,
-      userId: 1,
-      date: new Date('2025-01-06'),
-      clockIn: '08:30',
-      clockOut: '17:30',
-      pauseStart: '12:00',
-      pauseEnd: '13:00',
-      totalHours: 8,
-      status: 'completed',
-    },
-    {
-      id: 2,
-      userId: 1,
-      date: new Date('2025-01-07'),
-      clockIn: '08:45',
-      clockOut: '17:15',
-      pauseStart: '12:30',
-      pauseEnd: '13:00',
-      totalHours: 7.5,
-      status: 'completed',
-    },
-    {
-      id: 3,
-      userId: 1,
-      date: new Date('2025-01-08'),
-      clockIn: '08:30',
-      clockOut: '17:30',
-      pauseStart: '12:00',
-      pauseEnd: '13:00',
-      totalHours: 8,
-      status: 'completed',
-    },
-    {
-      id: 4,
-      userId: 1,
-      date: new Date('2025-01-09'),
-      clockIn: '08:00',
-      clockOut: '18:00',
-      pauseStart: '12:00',
-      pauseEnd: '13:00',
-      totalHours: 9,
-      status: 'completed',
-    },
-    {
-      id: 5,
-      userId: 1,
-      date: new Date('2025-01-10'),
-      clockIn: '09:00',
-      clockOut: '17:00',
-      pauseStart: '12:00',
-      pauseEnd: '13:00',
-      totalHours: 7,
-      status: 'completed',
-    },
-  ]);
+  breakStats = signal<BreakStats>({
+    totalBreakHours: 25.5,
+    avgBreakPerDay: 1.2,
+    breakComplianceRate: 98,
+    avgBreakTime: '12:30',
+    trend: 'stable',
+  });
 
-  teams = signal([
-    { id: 1, name: 'Development Team' },
-    { id: 2, name: 'Design Team' },
-    { id: 3, name: 'Marketing Team' },
-  ]);
+  // Computed stats based on view
+  currentStats = computed(() => {
+    if (this.dataView() === 'work') {
+      return {
+        label1: 'Heures totales',
+        value1: `${this.stats().totalHours}h`,
+        label2: 'Moyenne par jour',
+        value2: `${this.stats().avgHoursPerDay}h`,
+        label3: 'Taux de présence',
+        value3: `${this.stats().attendanceRate}%`,
+        label4: 'Arrivée moyenne',
+        value4: this.stats().avgArrivalTime,
+        trend: this.stats().trend,
+      };
+    } else {
+      return {
+        label1: 'Pauses totales',
+        value1: `${this.breakStats().totalBreakHours}h`,
+        label2: 'Moyenne par jour',
+        value2: `${this.breakStats().avgBreakPerDay}h`,
+        label3: 'Taux de conformité',
+        value3: `${this.breakStats().breakComplianceRate}%`,
+        label4: 'Heure moyenne',
+        value4: this.breakStats().avgBreakTime,
+        trend: this.breakStats().trend,
+      };
+    }
+  });
 
-  users = signal([
-    { id: 1, name: 'John Doe' },
-    { id: 2, name: 'Jane Smith' },
-    { id: 3, name: 'Bob Wilson' },
-  ]);
+  // Computed entities list based on filter type
+  entitiesList = computed<DisplayEntity[]>(() => {
+    return this.filterType() === 'teams'
+      ? (this.teams() as DisplayEntity[])
+      : (this.employees() as DisplayEntity[]);
+  });
 
   constructor(
-    public authService: AuthService,
+    private authService: AuthService,
     private chartService: ChartService
-  ) {}
+  ) {
+    // Initialize dates (last 30 days by default)
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(today.getDate() - 30);
 
-  ngOnInit() {
-    this.updateTime();
-    this.loadDashboardData();
+    this.endDate.set(today.toISOString().split('T')[0]);
+    this.startDate.set(thirtyDaysAgo.toISOString().split('T')[0]);
+
+    // Effect to reload data when filters change
+    effect(() => {
+      const filterType = this.filterType();
+      const entityId = this.selectedEntityId();
+      const start = this.startDate();
+      const end = this.endDate();
+
+      console.log('Filters changed:', { filterType, entityId, start, end });
+      this.loadData();
+    });
+
+    // Effect to update charts when period or view changes
+    effect(() => {
+      const hoursPeriod = this.hoursPeriod();
+      const attendancePeriod = this.attendancePeriod();
+      const dataView = this.dataView();
+
+      if (this.hoursChart) {
+        this.updateHoursChart();
+      }
+      if (this.attendanceChart) {
+        this.updateAttendanceChart();
+      }
+    });
   }
 
-  ngAfterViewInit() {
-    // Créer les graphiques après que la vue soit initialisée
-    this.initCharts();
+  ngOnInit(): void {
+    this.loadData();
   }
 
-  ngOnDestroy() {
-    // Détruire les graphiques pour éviter les fuites mémoire
+  ngAfterViewInit(): void {
+    setTimeout(() => {
+      this.initializeCharts();
+    }, 100);
+  }
+
+  ngOnDestroy(): void {
     this.chartService.destroyChart(this.hoursChart);
-    this.chartService.destroyChart(this.pauseChart);
+    this.chartService.destroyChart(this.attendanceChart);
   }
 
-  private initCharts() {
-    this.createHoursChart();
-    this.createPauseChart();
+  // Helper to get display name for an entity
+  getEntityDisplayName(entity: DisplayEntity): string {
+    if ('name' in entity) {
+      return entity.name; // Team
+    } else {
+      return `${entity.firstName} ${entity.lastName}`; // Employee
+    }
   }
 
-  private createHoursChart() {
-    const canvas = this.hoursChartRef.nativeElement;
+  // Clock in/out
+  toggleClock(): void {
+    this.isTracking.update((val) => !val);
+    this.lastClockTime.set(new Date());
 
-    const config: ChartConfiguration = {
-      type: 'line',
-      data: {
-        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-        datasets: [
-          {
-            label: 'Hours Worked',
-            data: [8, 7.5, 8, 9, 7, 0, 0],
-            backgroundColor: 'rgba(255, 195, 0, 0.2)',
-            borderColor: '#FFC300',
-            borderWidth: 2,
-            tension: 0.4,
-            fill: true,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            display: true,
-            position: 'top',
-          },
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: {
-              callback: function (value) {
-                return value + 'h';
-              },
-            },
-          },
-        },
-      },
-    };
-
-    this.hoursChart = this.chartService.createChart(canvas, config);
+    if (this.isTracking()) {
+      console.log('Clock IN at', this.lastClockTime());
+    } else {
+      console.log('Clock OUT at', this.lastClockTime());
+    }
   }
 
-  private createPauseChart() {
-    const canvas = this.pauseChartRef.nativeElement;
+  // Filter change handlers
+  onFilterTypeChange(): void {
+    this.selectedEntityId.set(null);
+  }
+
+  onEntityChange(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value;
+    this.selectedEntityId.set(value ? Number(value) : null);
+  }
+
+  // Load data from API (mock for now)
+  loadData(): void {
+    // Simulate API call
+    console.log('Loading data with filters...');
+    // Update stats based on filters
+    // This would be an actual API call in production
+  }
+
+  // Initialize charts
+  initializeCharts(): void {
+    this.initHoursChart();
+    this.initAttendanceChart();
+  }
+
+  initHoursChart(): void {
+    if (!this.hoursChartRef) return;
 
     const config: ChartConfiguration = {
       type: 'bar',
       data: {
-        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+        labels: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
         datasets: [
           {
-            label: 'Pause Duration (min)',
-            data: [45, 60, 30, 45, 50],
-            backgroundColor: 'rgba(59, 130, 246, 0.5)',
-            borderColor: '#3B82F6',
+            label: 'Heures travaillées',
+            data: [8, 7.5, 8, 9, 7, 0, 0],
+            backgroundColor: '#FFC300',
+            borderColor: '#CC9C00',
             borderWidth: 1,
+            borderRadius: 4,
           },
         ],
       },
@@ -218,117 +304,290 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
           legend: {
             display: false,
           },
+          tooltip: {
+            backgroundColor: '#1A1A1A',
+            padding: 12,
+            titleColor: '#FFF',
+            bodyColor: '#FFF',
+            cornerRadius: 4,
+          },
         },
         scales: {
           y: {
             beginAtZero: true,
+            max: 10,
             ticks: {
-              callback: function (value) {
-                return value + ' min';
-              },
+              stepSize: 2,
+              callback: (value) => `${value}h`,
+            },
+            grid: {
+              color: '#E3E3E3',
+            },
+          },
+          x: {
+            grid: {
+              display: false,
             },
           },
         },
       },
     };
 
-    this.pauseChart = this.chartService.createChart(canvas, config);
+    this.hoursChart = this.chartService.createChart(
+      this.hoursChartRef.nativeElement,
+      config
+    );
   }
 
-  // Méthode pour mettre à jour les données des graphiques
-  updateChartData() {
-    if (this.hoursChart) {
-      // Exemple de mise à jour des données
-      this.hoursChart.data.datasets[0].data = [7, 8, 8.5, 9, 7.5, 0, 0];
-      this.hoursChart.update();
+  initAttendanceChart(): void {
+    if (!this.attendanceChartRef) return;
+
+    const config: ChartConfiguration = {
+      type: 'line',
+      data: {
+        labels: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
+        datasets: [
+          {
+            label: 'Taux de présence',
+            data: [100, 95, 100, 90, 100, 0, 0],
+            borderColor: '#10B981',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            tension: 0.4,
+            fill: true,
+            pointBackgroundColor: '#10B981',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false,
+          },
+          tooltip: {
+            backgroundColor: '#1A1A1A',
+            padding: 12,
+            titleColor: '#FFF',
+            bodyColor: '#FFF',
+            cornerRadius: 4,
+            callbacks: {
+              label: (context) => `${context.parsed.y}%`,
+            },
+          },
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            max: 100,
+            ticks: {
+              stepSize: 20,
+              callback: (value) => `${value}%`,
+            },
+            grid: {
+              color: '#E3E3E3',
+            },
+          },
+          x: {
+            grid: {
+              display: false,
+            },
+          },
+        },
+      },
+    };
+
+    this.attendanceChart = this.chartService.createChart(
+      this.attendanceChartRef.nativeElement,
+      config
+    );
+  }
+
+  updateHoursChart(): void {
+    if (!this.hoursChart) return;
+
+    const period = this.hoursPeriod();
+    const isWorkView = this.dataView() === 'work';
+
+    let labels: string[] = [];
+    let data: number[] = [];
+    let label = '';
+    let color = '';
+
+    if (isWorkView) {
+      label = 'Heures travaillées';
+      color = '#FFC300';
+
+      switch (period) {
+        case 'day':
+          labels = ['00h', '04h', '08h', '12h', '16h', '20h'];
+          data = [0, 0, 2, 3, 2, 1];
+          break;
+        case 'week':
+          labels = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+          data = [8, 7.5, 8, 9, 7, 0, 0];
+          break;
+        case 'month':
+          labels = ['S1', 'S2', 'S3', 'S4'];
+          data = [38, 40, 35, 39];
+          break;
+        case 'year':
+          labels = [
+            'Jan',
+            'Fév',
+            'Mar',
+            'Avr',
+            'Mai',
+            'Jun',
+            'Jul',
+            'Aoû',
+            'Sep',
+            'Oct',
+            'Nov',
+            'Déc',
+          ];
+          data = [160, 152, 168, 156, 160, 144, 120, 168, 160, 156, 0, 0];
+          break;
+      }
+    } else {
+      label = 'Heures de pause';
+      color = '#3B82F6';
+
+      switch (period) {
+        case 'day':
+          labels = ['00h', '04h', '08h', '12h', '16h', '20h'];
+          data = [0, 0, 0, 1, 0.5, 0];
+          break;
+        case 'week':
+          labels = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+          data = [1, 1.5, 1, 1.2, 1, 0, 0];
+          break;
+        case 'month':
+          labels = ['S1', 'S2', 'S3', 'S4'];
+          data = [5, 5.5, 4.8, 6];
+          break;
+        case 'year':
+          labels = [
+            'Jan',
+            'Fév',
+            'Mar',
+            'Avr',
+            'Mai',
+            'Jun',
+            'Jul',
+            'Aoû',
+            'Sep',
+            'Oct',
+            'Nov',
+            'Déc',
+          ];
+          data = [20, 19, 22, 21, 20, 18, 15, 22, 20, 19, 0, 0];
+          break;
+      }
     }
 
-    if (this.pauseChart) {
-      this.pauseChart.data.datasets[0].data = [50, 55, 35, 40, 45];
-      this.pauseChart.update();
+    this.hoursChart.data.labels = labels;
+    this.hoursChart.data.datasets[0].label = label;
+    this.hoursChart.data.datasets[0].data = data;
+    this.hoursChart.data.datasets[0].backgroundColor = color;
+    this.hoursChart.data.datasets[0].borderColor = isWorkView
+      ? '#CC9C00'
+      : '#2563EB';
+    this.hoursChart.update();
+  }
+
+  updateAttendanceChart(): void {
+    if (!this.attendanceChart) return;
+
+    const period = this.attendancePeriod();
+    const isWorkView = this.dataView() === 'work';
+
+    let labels: string[] = [];
+    let data: number[] = [];
+    let label = '';
+    let color = '';
+
+    if (isWorkView) {
+      label = 'Taux de présence';
+      color = '#10B981';
+
+      switch (period) {
+        case 'day':
+          labels = ['00h', '04h', '08h', '12h', '16h', '20h'];
+          data = [0, 0, 100, 100, 100, 0];
+          break;
+        case 'week':
+          labels = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+          data = [100, 95, 100, 90, 100, 0, 0];
+          break;
+        case 'month':
+          labels = ['S1', 'S2', 'S3', 'S4'];
+          data = [96, 98, 92, 95];
+          break;
+        case 'year':
+          labels = [
+            'Jan',
+            'Fév',
+            'Mar',
+            'Avr',
+            'Mai',
+            'Jun',
+            'Jul',
+            'Aoû',
+            'Sep',
+            'Oct',
+            'Nov',
+            'Déc',
+          ];
+          data = [95, 93, 97, 94, 96, 92, 88, 96, 95, 94, 0, 0];
+          break;
+      }
+    } else {
+      label = 'Taux de conformité pauses';
+      color = '#F59E0B';
+
+      switch (period) {
+        case 'day':
+          labels = ['00h', '04h', '08h', '12h', '16h', '20h'];
+          data = [0, 0, 0, 100, 100, 0];
+          break;
+        case 'week':
+          labels = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+          data = [100, 100, 95, 100, 100, 0, 0];
+          break;
+        case 'month':
+          labels = ['S1', 'S2', 'S3', 'S4'];
+          data = [98, 97, 99, 96];
+          break;
+        case 'year':
+          labels = [
+            'Jan',
+            'Fév',
+            'Mar',
+            'Avr',
+            'Mai',
+            'Jun',
+            'Jul',
+            'Aoû',
+            'Sep',
+            'Oct',
+            'Nov',
+            'Déc',
+          ];
+          data = [98, 97, 99, 96, 98, 95, 94, 99, 98, 97, 0, 0];
+          break;
+      }
     }
-  }
 
-  updateTime() {
-    setInterval(() => {
-      this.currentDate.set(new Date());
-    }, 1000);
-  }
-
-  loadDashboardData() {
-    console.log('Loading dashboard data...');
-    // Après le chargement, mettre à jour les graphiques
-    // this.updateChartData();
-  }
-
-  toggleTimeTracker() {
-    this.isTracking.update((value) => !value);
-  }
-
-  onPeriodChange(period: Period) {
-    this.selectedPeriod.set(period);
-    this.loadDashboardData();
-  }
-
-  onTeamChange(event: Event) {
-    const value = (event.target as HTMLSelectElement).value;
-    this.selectedTeam.set(value ? parseInt(value) : null);
-    this.selectedUser.set(null);
-    this.loadDashboardData();
-  }
-
-  onUserChange(event: Event) {
-    const value = (event.target as HTMLSelectElement).value;
-    this.selectedUser.set(value ? parseInt(value) : null);
-    this.loadDashboardData();
-  }
-
-  formatDate(date: Date): string {
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: '2-digit',
-      year: 'numeric',
-    });
-  }
-
-  formatTime(date: Date): string {
-    return date
-      .toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-      })
-      .toUpperCase();
-  }
-
-  getDayName(date: Date): string {
-    return date.toLocaleDateString('en-US', { weekday: 'long' });
-  }
-
-  getStatusColor(status: string): string {
-    switch (status) {
-      case 'completed':
-        return 'text-success';
-      case 'in-progress':
-        return 'text-warning';
-      case 'absent':
-        return 'text-error';
-      default:
-        return 'text-dark-600';
-    }
-  }
-
-  getStatusBadge(status: string): string {
-    switch (status) {
-      case 'completed':
-        return 'bg-success/10 text-success';
-      case 'in-progress':
-        return 'bg-warning/10 text-warning';
-      case 'absent':
-        return 'bg-error/10 text-error';
-      default:
-        return 'bg-gray-100 text-dark-600';
-    }
+    this.attendanceChart.data.labels = labels;
+    this.attendanceChart.data.datasets[0].label = label;
+    this.attendanceChart.data.datasets[0].data = data;
+    this.attendanceChart.data.datasets[0].borderColor = color;
+    this.attendanceChart.data.datasets[0].backgroundColor = `${color}1A`;
+    this.attendanceChart.update();
   }
 }

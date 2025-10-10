@@ -17,12 +17,23 @@ export class AuthService {
 
   constructor(private http: HttpClient) {
     this.loadUserFromStorage();
+
+    // Mock pour le développement
+    this.currentUser.set({
+      id: 1,
+      firstName: 'John',
+      lastName: 'Manager',
+      email: 'manager@example.com',
+      phoneNumber: '+33612345678',
+      role: 'manager', // 👈 'manager' ou 'employee'
+    });
   }
 
   login(email: string, password: string): Observable<LoginResponse> {
-    return this.http.post<LoginResponse>(`${this.apiUrl}/auth/login`, { email, password })
+    return this.http
+      .post<LoginResponse>(`${this.apiUrl}/auth/login`, { email, password })
       .pipe(
-        tap(response => {
+        tap((response) => {
           localStorage.setItem('token', response.token);
           localStorage.setItem('user', JSON.stringify(response.user));
           this.currentUser.set(response.user);
@@ -42,7 +53,7 @@ export class AuthService {
 
   isAuthenticated(): boolean {
     // return !!this.getToken();
-    return true
+    return true;
   }
 
   private loadUserFromStorage(): void {
