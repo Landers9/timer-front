@@ -1,0 +1,101 @@
+<div class="min-h-screen flex items-center justify-center p-4 bg-gray-50">
+  <div class="w-full max-w-md">
+
+    <!-- Logo -->
+    <div class="text-center mb-8">
+      <div class="flex items-center justify-center gap-2">
+        <div class="w-7 h-7 bg-dark-900 rounded flex items-center justify-center">
+          <span class="text-primary-500 font-bold text-sm">T</span>
+        </div>
+        <span class="font-semibold text-base text-dark-900">
+          TASK<span class="text-primary-500">Y</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Card -->
+    <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-8">
+
+      <!-- Header -->
+      <div class="text-center mb-8">
+        <div class="flex justify-center mb-4">
+          <div class="w-14 h-14 bg-primary-50 rounded-full flex items-center justify-center">
+            <lucide-angular [img]="ShieldIcon" class="w-7 h-7 text-primary-500"></lucide-angular>
+          </div>
+        </div>
+        <h2 class="text-2xl font-bold text-dark-900">Vérification 2FA</h2>
+        <p class="text-sm text-dark-600 mt-1">
+          Entrez le code à 6 chiffres envoyé à votre téléphone
+        </p>
+      </div>
+
+      <!-- Expired State -->
+      <div *ngIf="isExpired" class="text-center">
+        <div class="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg mb-6 flex items-start gap-3">
+          <svg class="w-5 h-5 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+          </svg>
+          <div class="text-sm">
+            <p class="font-medium">Code expiré</p>
+          </div>
+        </div>
+        <button (click)="resendOtp()" class="btn btn-primary w-full flex items-center justify-center gap-2">
+          <lucide-angular [img]="RotateCcwIcon" class="w-4 h-4"></lucide-angular>
+          Renvoyer le code
+        </button>
+      </div>
+
+      <!-- Form -->
+      <form *ngIf="!isExpired" (ngSubmit)="onSubmit()" class="space-y-6">
+
+        <!-- Error -->
+        <div *ngIf="errorMessage()" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-start gap-3">
+          <svg class="w-5 h-5 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+          </svg>
+          <span class="text-sm">{{ errorMessage() }}</span>
+        </div>
+
+        <!-- OTP Input -->
+        <div>
+          <label class="input-label">Code de vérification</label>
+          <input
+            type="text"
+            inputmode="numeric"
+            [(ngModel)]="otpCode"
+            (input)="onOtpInput($event)"
+            name="otpCode"
+            class="input-field"
+            placeholder="000000"
+            maxlength="6"
+          />
+        </div>
+
+        <!-- Timer -->
+        <div class="flex items-center justify-center gap-2 text-sm" [class.text-red-600]="remainingTime() < 60">
+          <lucide-angular [img]="ClockIcon" class="w-4 h-4"></lucide-angular>
+          Code expire dans : <span class="font-semibold">{{ formatTime(remainingTime()) }}</span>
+        </div>
+
+        <!-- Submit Button -->
+        <button type="submit" [disabled]="isLoading()" class="btn btn-primary w-full">
+          {{ isLoading() ? 'Vérification...' : 'Vérifier' }}
+        </button>
+
+        <!-- Resend -->
+        <div class="text-center">
+          <p class="text-sm text-dark-600">
+            Pas reçu le code ?
+            <button
+              type="button"
+              (click)="resendOtp()"
+              class="text-primary-500 hover:text-primary-600 font-medium transition-colors"
+            >
+              Renvoyer
+            </button>
+          </p>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
