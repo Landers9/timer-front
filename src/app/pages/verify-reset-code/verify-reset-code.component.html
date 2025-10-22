@@ -1,4 +1,4 @@
-<!-- src/app/pages/two-factor-auth/two-factor-auth.component.html -->
+<!-- src/app/pages/verify-reset-code/verify-reset-code.component.html -->
 <div class="min-h-screen flex items-center justify-center p-4 bg-gray-50">
   <div class="w-full max-w-md">
 
@@ -24,9 +24,9 @@
             <lucide-angular [img]="ShieldIcon" class="w-7 h-7 text-primary-500"></lucide-angular>
           </div>
         </div>
-        <h2 class="text-2xl font-bold text-dark-900">Vérification 2FA</h2>
+        <h2 class="text-2xl font-bold text-dark-900">Vérification du code</h2>
         <p class="text-sm text-dark-600 mt-3">
-          Un code de vérification à 6 chiffres a été envoyé à votre adresse email.
+          Entrez le code de vérification envoyé à votre email
         </p>
       </div>
 
@@ -41,15 +41,15 @@
           <span class="text-sm">{{ errorMessage() }}</span>
         </div>
 
-        <!-- OTP Input -->
+        <!-- Code Input -->
         <div>
           <label class="input-label">Code de vérification</label>
           <input
             type="text"
             inputmode="numeric"
-            [(ngModel)]="otpCode"
+            [(ngModel)]="resetCode"
             (input)="onCodeInput($event)"
-            name="otpCode"
+            name="resetCode"
             class="input-field"
             placeholder="000000"
             maxlength="6"
@@ -58,23 +58,8 @@
 
         <!-- Submit -->
         <button type="submit" [disabled]="isLoading()" class="btn btn-primary w-full">
-          {{ isLoading() ? 'Vérification...' : 'Vérifier' }}
+          {{ isLoading() ? 'Vérification...' : 'Vérifier le code' }}
         </button>
-
-        <!-- Resend -->
-        <div class="text-center">
-          <p class="text-sm text-dark-600">
-            Pas reçu le code ?
-            <button
-              type="button"
-              (click)="resendOtp()"
-              [disabled]="isLoading()"
-              class="text-primary-500 hover:text-primary-600 font-medium transition-colors disabled:opacity-50"
-            >
-              Renvoyer
-            </button>
-          </p>
-        </div>
       </form>
     </div>
   </div>

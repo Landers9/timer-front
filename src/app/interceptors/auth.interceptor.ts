@@ -1,4 +1,3 @@
-// src/app/interceptors/auth.interceptor.ts
 import { Injectable } from '@angular/core';
 import {
   HttpRequest,
@@ -20,7 +19,6 @@ export class AuthInterceptor implements HttpInterceptor {
     request: HttpRequest<unknown>,
     next: HttpHandler
   ): Observable<HttpEvent<unknown>> {
-    // Add token to requests
     const token = this.authService.getToken();
     if (token) {
       request = request.clone({
@@ -33,12 +31,8 @@ export class AuthInterceptor implements HttpInterceptor {
     return next.handle(request).pipe(
       catchError((error: HttpErrorResponse) => {
         if (error.status === 401) {
-          // Unauthorized - token expired or invalid
-          this.authService.expireSession();
-          this.router.navigate(['/session-expired']);
-        } else if (error.status === 403) {
-          // Forbidden - insufficient permissions
-          this.router.navigate(['/dashboard']);
+          this.authService.logout();
+          this.router.navigate(['/login']);
         }
         return throwError(() => error);
       })

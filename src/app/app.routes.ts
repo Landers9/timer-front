@@ -22,6 +22,13 @@ export const routes: Routes = [
           import('./pages/login/login.component').then((m) => m.LoginComponent),
       },
       {
+        path: 'verify-2fa',
+        loadComponent: () =>
+          import('./pages/two-factor-auth/two-factor-auth.component').then(
+            (m) => m.TwoFactorAuthComponent
+          ),
+      },
+      {
         path: 'forgot-password',
         loadComponent: () =>
           import('./pages/forgot-password/forgot-password.component').then(
@@ -29,17 +36,17 @@ export const routes: Routes = [
           ),
       },
       {
-        path: 'reset-password',
+        path: 'verify-reset-code',
         loadComponent: () =>
-          import('./pages/reset-password/reset-password.component').then(
-            (m) => m.ResetPasswordComponent
+          import('./pages/verify-reset-code/verify-reset-code.component').then(
+            (m) => m.VerifyResetCodeComponent
           ),
       },
       {
-        path: 'verify-2fa',
+        path: 'new-password',
         loadComponent: () =>
-          import('./pages/two-factor-auth/two-factor-auth.component').then(
-            (m) => m.TwoFactorAuthComponent
+          import('./pages/new-password/new-password.component').then(
+            (m) => m.NewPasswordComponent
           ),
       },
     ],
@@ -85,6 +92,5 @@ export const routes: Routes = [
     ],
   },
 
-  // ========== FALLBACK ==========
   { path: '**', redirectTo: 'login' },
 ];
