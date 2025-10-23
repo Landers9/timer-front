@@ -2,10 +2,10 @@
 import { Component, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
+  Router,
   RouterLink,
   RouterLinkActive,
   RouterOutlet,
-  Router,
 } from '@angular/router';
 import {
   LucideAngularModule,
@@ -13,17 +13,17 @@ import {
   User,
   Users,
   UserCheck,
-  Power,
   Menu,
-  Search,
   Bell,
   ClipboardMinus,
-  LogOut
+  LogOut,
+  Clock,
+  FileText,
 } from 'lucide-angular';
 import { AuthService } from '../../services/auth.service';
 
 interface MenuItem {
-  icon: any; // Changer string en any
+  icon: any;
   label: string;
   route: string;
   roles?: ('employee' | 'manager')[];
@@ -43,22 +43,31 @@ interface MenuItem {
   styleUrl: './main-layout.component.css',
 })
 export class MainLayoutComponent {
-  // Icônes disponibles dans le composant
+  // Icons
   readonly MenuIcon = Menu;
-  readonly SearchIcon = Search;
   readonly BellIcon = Bell;
-  readonly PowerIcon = Power;
+  readonly LogOutIcon = LogOut;
+  readonly DashboardIcon = LayoutDashboard;
+  readonly ReportsIcon = FileText;
+  readonly UsersTabIcon = Users;
+  readonly ClockTabIcon = Clock;
+  readonly TeamsTabIcon = UserCheck;
+  readonly ProfileTabIcon = User;
 
   isSidebarOpen = signal(true);
-  searchQuery = signal('');
+  isMobileSidebarOpen = signal(false);
   notificationCount = signal(10);
 
-  // Menu items avec icônes directes
   allMenuItems: MenuItem[] = [
     { icon: LayoutDashboard, label: 'Dashboard', route: '/dashboard' },
     { icon: Users, label: 'Teams', route: '/teams', roles: ['manager'] },
     { icon: UserCheck, label: 'Users', route: '/users', roles: ['manager'] },
-    { icon: ClipboardMinus, label: 'Reports', route: '/reports', roles: ['manager'] },
+    {
+      icon: ClipboardMinus,
+      label: 'Reports',
+      route: '/reports',
+      roles: ['manager'],
+    },
     { icon: User, label: 'Profile', route: '/profile' },
   ];
 
@@ -76,8 +85,21 @@ export class MainLayoutComponent {
     this.isSidebarOpen.update((value) => !value);
   }
 
+  openMobileSidebar() {
+    this.isMobileSidebarOpen.set(true);
+  }
+
+  closeMobileSidebar() {
+    this.isMobileSidebarOpen.set(false);
+  }
+
+  isRouteActive(route: string): boolean {
+    return this.router.url === route;
+  }
+
   logout() {
     this.authService.logout();
+    this.closeMobileSidebar();
     this.router.navigate(['/login']);
   }
 }
