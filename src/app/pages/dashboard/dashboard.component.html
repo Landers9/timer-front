@@ -12,25 +12,25 @@
         Bienvenue, <span class="font-medium">{{ userName() }}</span>
       </p>
     </div>
-    
-    <!-- Clock In/Out Button -->
-    <button
-      (click)="toggleClock()"
-      [class.bg-success]="isTracking()"
-      [class.bg-primary-500]="!isTracking()"
-      class="px-6 py-3 rounded-lg text-dark-900 font-semibold shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2"
+
+    <!-- Clock In/Out Button - LIEN VERS PAGE CLOCK -->
+    <a
+      href="/clock"
+      class="px-6 py-3 rounded-lg text-dark-900 font-semibold shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2 bg-primary-500 hover:bg-primary-600"
     >
       <lucide-angular [img]="ClockIcon" class="w-5 h-5"></lucide-angular>
-      <span>{{ isTracking() ? 'Pointer la sortie' : 'Pointer l\'arrivée' }}</span>
-    </button>
+      <span class="hidden sm:inline">Aller au pointage</span>
+      <span class="sm:hidden">Pointage</span>
+    </a>
   </div>
 
   <!-- Filters Section (Manager Only) -->
-  <div *ngIf="isManager()" class="bg-white rounded-lg border border-gray-200 p-5">
+  <div
+    *ngIf="isManager()"
+    class="bg-white rounded-lg border border-gray-200 p-5"
+  >
     <div class="flex items-center justify-between mb-4">
-      <h3 class="text-base font-semibold text-dark-900">
-        Filtres d'analyse
-      </h3>
+      <h3 class="text-base font-semibold text-dark-900">Filtres d'analyse</h3>
 
       <!-- Toggle Button: Work / Break -->
       <div class="inline-flex rounded-lg border border-gray-200 p-1 bg-gray-50">
@@ -74,7 +74,11 @@
       <!-- Entity Selection -->
       <div>
         <label class="input-label">
-          {{ filterType() === 'teams' ? 'Sélectionner une équipe' : 'Sélectionner un employé' }}
+          {{
+            filterType() === "teams"
+              ? "Sélectionner une équipe"
+              : "Sélectionner un employé"
+          }}
         </label>
         <select
           [value]="selectedEntityId() ?? ''"
@@ -82,10 +86,7 @@
           class="input-field"
         >
           <option value="">Tous</option>
-          <option
-            *ngFor="let entity of entitiesList()"
-            [value]="entity.id"
-          >
+          <option *ngFor="let entity of entitiesList()" [value]="entity.id">
             {{ getEntityDisplayName(entity) }}
           </option>
         </select>
@@ -94,21 +95,13 @@
       <!-- Start Date -->
       <div>
         <label class="input-label">Date de début</label>
-        <input
-          type="date"
-          [(ngModel)]="startDate"
-          class="input-field"
-        />
+        <input type="date" [(ngModel)]="startDate" class="input-field" />
       </div>
 
       <!-- End Date -->
       <div>
         <label class="input-label">Date de fin</label>
-        <input
-          type="date"
-          [(ngModel)]="endDate"
-          class="input-field"
-        />
+        <input type="date" [(ngModel)]="endDate" class="input-field" />
       </div>
     </div>
   </div>
@@ -118,7 +111,9 @@
     <!-- Stat 1 -->
     <div class="card-stat">
       <div>
-        <p class="text-xs text-dark-600 font-medium">{{ currentStats().label1 }}</p>
+        <p class="text-xs text-dark-600 font-medium">
+          {{ currentStats().label1 }}
+        </p>
         <p class="text-2xl font-bold text-dark-900 mt-1">
           {{ currentStats().value1 }}
         </p>
@@ -140,7 +135,9 @@
     <!-- Stat 2 -->
     <div class="card-stat">
       <div>
-        <p class="text-xs text-dark-600 font-medium">{{ currentStats().label2 }}</p>
+        <p class="text-xs text-dark-600 font-medium">
+          {{ currentStats().label2 }}
+        </p>
         <p class="text-2xl font-bold text-dark-900 mt-1">
           {{ currentStats().value2 }}
         </p>
@@ -168,7 +165,12 @@
           stroke="currentColor"
           viewBox="0 0 24 24"
         >
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14"></path>
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M5 12h14"
+          ></path>
         </svg>
       </div>
     </div>
@@ -176,7 +178,9 @@
     <!-- Stat 3 -->
     <div class="card-stat">
       <div>
-        <p class="text-xs text-dark-600 font-medium">{{ currentStats().label3 }}</p>
+        <p class="text-xs text-dark-600 font-medium">
+          {{ currentStats().label3 }}
+        </p>
         <p class="text-2xl font-bold text-dark-900 mt-1">
           {{ currentStats().value3 }}
         </p>
@@ -194,7 +198,12 @@
           stroke="currentColor"
           viewBox="0 0 24 24"
         >
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+          ></path>
         </svg>
       </div>
     </div>
@@ -202,14 +211,28 @@
     <!-- Stat 4 -->
     <div class="card-stat">
       <div>
-        <p class="text-xs text-dark-600 font-medium">{{ currentStats().label4 }}</p>
+        <p class="text-xs text-dark-600 font-medium">
+          {{ currentStats().label4 }}
+        </p>
         <p class="text-2xl font-bold text-dark-900 mt-1">
           {{ currentStats().value4 }}
         </p>
       </div>
-      <div class="w-12 h-12 rounded-full bg-info bg-opacity-20 flex items-center justify-center">
-        <svg class="w-6 h-6 text-info" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+      <div
+        class="w-12 h-12 rounded-full bg-info bg-opacity-20 flex items-center justify-center"
+      >
+        <svg
+          class="w-6 h-6 text-info"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+          ></path>
         </svg>
       </div>
     </div>
@@ -221,7 +244,7 @@
     <div class="card">
       <div class="flex items-center justify-between mb-6">
         <h3 class="text-lg font-semibold text-dark-900">
-          {{ dataView() === 'work' ? 'Heures travaillées' : 'Heures de pause' }}
+          {{ dataView() === "work" ? "Heures travaillées" : "Heures de pause" }}
         </h3>
 
         <!-- Period Selector -->
@@ -245,7 +268,9 @@
     <div class="card">
       <div class="flex items-center justify-between mb-6">
         <h3 class="text-lg font-semibold text-dark-900">
-          {{ dataView() === 'work' ? 'Taux de présence' : 'Conformité des pauses' }}
+          {{
+            dataView() === "work" ? "Taux de présence" : "Conformité des pauses"
+          }}
         </h3>
 
         <!-- Period Selector -->
@@ -267,15 +292,27 @@
   </div>
 
   <!-- Info Message for Employees -->
-  <div *ngIf="!isManager()" class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+  <div
+    *ngIf="!isManager()"
+    class="bg-blue-50 border border-blue-200 rounded-lg p-4"
+  >
     <div class="flex items-start gap-3">
-      <svg class="w-5 h-5 text-info mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+      <svg
+        class="w-5 h-5 text-info mt-0.5"
+        fill="currentColor"
+        viewBox="0 0 20 20"
+      >
+        <path
+          fill-rule="evenodd"
+          d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+          clip-rule="evenodd"
+        ></path>
       </svg>
       <div>
         <p class="text-sm font-medium text-info">Dashboard personnel</p>
         <p class="text-sm text-dark-600 mt-1">
-          Les statistiques affichées concernent uniquement vos données personnelles.
+          Les statistiques affichées concernent uniquement vos données
+          personnelles.
         </p>
       </div>
     </div>

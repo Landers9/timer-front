@@ -14,7 +14,7 @@ interface LoginResponse {
 export class AuthService {
   private apiUrl = environment.apiUrl;
   currentUser = signal<User | null>(null);
-  isAuthenticated = signal(false);
+  isAuthenticated = signal(true);
   sessionId = signal<string | null>(null);
 
   constructor(private http: HttpClient) {

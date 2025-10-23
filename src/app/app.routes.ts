@@ -52,7 +52,15 @@ export const routes: Routes = [
     ],
   },
 
-  // ========== PROTECTED ROUTES ==========
+  // ========== CLOCK PAGE (ISOLÉE - PAS DE LAYOUT) ==========
+  {
+    path: 'clock',
+    canActivate: [AuthGuard],
+    loadComponent: () =>
+      import('./pages/clock/clock.component').then((m) => m.ClockComponent),
+  },
+
+  // ========== PROTECTED ROUTES (AVEC LAYOUT) ==========
   {
     path: '',
     component: MainLayoutComponent,
