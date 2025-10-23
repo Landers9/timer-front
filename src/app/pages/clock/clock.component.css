@@ -4,9 +4,10 @@
   display: block;
   width: 100%;
   min-height: 100vh;
+  background-color: #1a1a1a;
 }
 
-/* Font mono pour timers */
+/* Font mono */
 .font-mono {
   font-family: 'Courier New', monospace;
   letter-spacing: 0.05em;
@@ -14,68 +15,62 @@
 
 /* Button styles */
 button {
-  font-weight: 600;
-  transition: all 0.2s ease-in-out;
+  transition: all 0.2s ease;
 }
 
-button:active:not(:disabled) {
-  transform: translateY(-1px);
+button:active {
+  transform: scale(0.95);
 }
 
-button:disabled {
-  cursor: not-allowed;
+/* SVG transitions */
+circle {
+  transition: stroke 0.3s ease;
 }
 
-/* Pulse animation */
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
+/* Colors */
+.bg-dark-900 {
+  background-color: #1a1a1a;
 }
 
-.animate-pulse {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+.bg-dark-700 {
+  background-color: #383838;
+}
+
+.bg-dark-400 {
+  background-color: #818181;
+}
+
+.text-dark-400 {
+  color: #818181;
+}
+
+.text-dark-900 {
+  color: #1a1a1a;
+}
+
+.bg-primary-500 {
+  background-color: #FFC300;
+}
+
+.hover\:bg-primary-600:hover {
+  background-color: #CC9C00;
 }
 
 /* Responsive */
 @media (max-width: 640px) {
-  .text-5xl {
-    font-size: 2.5rem;
+  .text-8xl {
+    font-size: 4rem;
   }
-}
 
-/* Color utilities */
-.text-error {
-  color: #EF4444;
-}
+  .text-3xl {
+    font-size: 1.875rem;
+  }
 
-.bg-error {
-  background-color: #EF4444;
-}
+  .w-48 {
+    width: 150px;
+  }
 
-.text-warning {
-  color: #F59E0B;
-}
-
-.bg-warning {
-  background-color: #F59E0B;
-}
-
-.text-success {
-  color: #10B981;
-}
-
-.bg-success {
-  background-color: #10B981;
-}
-
-.bg-gray-50 {
-  background-color: #f9fafb;
-}
-
-.border-gray-200 {
-  border-color: #e5e7eb;
+  .h-48 {
+    height: 150px;
+  }
 }

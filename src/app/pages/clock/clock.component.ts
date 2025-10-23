@@ -10,6 +10,8 @@ import {
   Coffee,
   ArrowLeft,
   Clock,
+  Users,
+  Settings,
 } from 'lucide-angular';
 import { AuthService } from '../../services/auth.service';
 
@@ -43,6 +45,8 @@ export class ClockComponent implements OnInit, OnDestroy {
   readonly CoffeeIcon = Coffee;
   readonly ArrowLeftIcon = ArrowLeft;
   readonly ClockIcon = Clock;
+  readonly UsersIcon = Users;
+  readonly SettingsIcon = Settings;
 
   // State signals
   currentTime = signal('00:00');
