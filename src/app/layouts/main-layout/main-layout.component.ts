@@ -1,11 +1,11 @@
 // src/app/layouts/main-layout/main-layout.component.ts
-import { Component, signal, computed } from '@angular/core';
+import { Component, signal, computed, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
-  Router,
   RouterLink,
   RouterLinkActive,
   RouterOutlet,
+  Router,
 } from '@angular/router';
 import {
   LucideAngularModule,
@@ -13,20 +13,25 @@ import {
   User,
   Users,
   UserCheck,
+  LogOut,
   Menu,
   Bell,
-  ClipboardMinus,
-  LogOut,
   Clock,
-  FileText,
+  ClipboardList,
+  X,
 } from 'lucide-angular';
-import { AuthService } from '../../services/auth.service';
 
 interface MenuItem {
-  icon: any;
+  icon: string;
   label: string;
   route: string;
   roles?: ('employee' | 'manager')[];
+}
+
+interface MockUser {
+  firstName: string;
+  lastName: string;
+  role: 'employee' | 'manager';
 }
 
 @Component({
@@ -43,63 +48,95 @@ interface MenuItem {
   styleUrl: './main-layout.component.css',
 })
 export class MainLayoutComponent {
-  // Icons
-  readonly MenuIcon = Menu;
-  readonly BellIcon = Bell;
-  readonly LogOutIcon = LogOut;
-  readonly DashboardIcon = LayoutDashboard;
-  readonly ReportsIcon = FileText;
-  readonly UsersTabIcon = Users;
-  readonly ClockTabIcon = Clock;
-  readonly TeamsTabIcon = UserCheck;
-  readonly ProfileTabIcon = User;
-
   isSidebarOpen = signal(true);
-  isMobileSidebarOpen = signal(false);
+  searchQuery = signal('');
   notificationCount = signal(10);
+  isMobileView = signal(false);
+  isMobileMenuOpen = signal(false);
 
+  // Changez le rôle ici pour tester: 'employee' ou 'manager'
+  currentUserRole = signal<'employee' | 'manager'>('employee');
+
+  // Utilisateur simulé pour les tests
+  mockUser = computed<MockUser>(() => ({
+    firstName: 'John',
+    lastName: 'Doe',
+    role: this.currentUserRole(),
+  }));
+
+  // Menu items pour desktop sidebar (tous les rôles)
   allMenuItems: MenuItem[] = [
-    { icon: LayoutDashboard, label: 'Dashboard', route: '/dashboard' },
-    { icon: Users, label: 'Teams', route: '/teams', roles: ['manager'] },
-    { icon: UserCheck, label: 'Users', route: '/users', roles: ['manager'] },
+    { icon: 'layout-dashboard', label: 'Dashboard', route: '/dashboard' },
+    { icon: 'clock', label: 'Clock', route: '/clock' },
+    { icon: 'users', label: 'Teams', route: '/teams', roles: ['manager'] },
+    { icon: 'user-check', label: 'Users', route: '/users', roles: ['manager'] },
     {
-      icon: ClipboardMinus,
+      icon: 'clipboard-list',
       label: 'Reports',
       route: '/reports',
       roles: ['manager'],
     },
-    { icon: User, label: 'Profile', route: '/profile' },
+    { icon: 'user', label: 'Profile', route: '/profile' },
   ];
 
+  // Menu items pour desktop sidebar (filtré par rôle)
   menuItems = computed(() => {
-    const user = this.authService.currentUser();
+    const user = this.mockUser();
     return this.allMenuItems.filter((item) => {
       if (!item.roles) return true;
-      return item.roles.includes(user?.role || 'manager');
+      return item.roles.includes(user?.role || 'employee');
     });
   });
 
-  constructor(public authService: AuthService, private router: Router) {}
+  // Menu items pour mobile sidebar manager (Dashboard, Teams, Users, Reports)
+  managerSidebarMenuItems = computed(() => {
+    const user = this.mockUser();
+    if (user?.role === 'manager') {
+      return [
+        this.allMenuItems[0], // Dashboard
+        this.allMenuItems[2], // Teams
+        this.allMenuItems[3], // Users
+        this.allMenuItems[4], // Reports
+      ];
+    }
+    return [];
+  });
+
+  constructor() {
+    this.detectMobileView();
+  }
+
+  @HostListener('window:resize', ['$event'])
+  onResize(event: any) {
+    this.detectMobileView();
+  }
+
+  private detectMobileView() {
+    const isMobile = window.innerWidth < 768;
+    this.isMobileView.set(isMobile);
+
+    if (isMobile) {
+      this.isSidebarOpen.set(false);
+    }
+  }
 
   toggleSidebar() {
-    this.isSidebarOpen.update((value) => !value);
+    if (!this.isMobileView()) {
+      this.isSidebarOpen.update((value) => !value);
+    }
   }
 
-  openMobileSidebar() {
-    this.isMobileSidebarOpen.set(true);
+  toggleMobileMenu() {
+    this.isMobileMenuOpen.update((value) => !value);
   }
 
-  closeMobileSidebar() {
-    this.isMobileSidebarOpen.set(false);
-  }
-
-  isRouteActive(route: string): boolean {
-    return this.router.url === route;
+  closeMobileMenu() {
+    this.isMobileMenuOpen.set(false);
   }
 
   logout() {
-    this.authService.logout();
-    this.closeMobileSidebar();
-    this.router.navigate(['/login']);
+    console.log('Logout clicked');
+    // Pour les tests, on peut changer de rôle au logout
+    // this.currentUserRole.set(this.currentUserRole() === 'manager' ? 'employee' : 'manager');
   }
 }
