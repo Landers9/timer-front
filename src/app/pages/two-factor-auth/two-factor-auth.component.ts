@@ -19,12 +19,15 @@ export class TwoFactorAuthComponent implements OnInit {
 
   otpCode = signal('');
   isLoading = signal(false);
+  isResending = signal(false);
   errorMessage = signal('');
+  successMessage = signal('');
 
   constructor(private authService: AuthService, private router: Router) {}
 
   ngOnInit() {
-    if (!this.authService.sessionId()) {
+    // Vérifier qu'on a un token de vérification
+    if (!this.authService.verificationToken()) {
       this.router.navigate(['/login']);
     }
   }
@@ -33,6 +36,7 @@ export class TwoFactorAuthComponent implements OnInit {
     const input = event.target as HTMLInputElement;
     const value = input.value.replace(/[^\d]/g, '').slice(0, 6);
     this.otpCode.set(value);
+    this.errorMessage.set('');
   }
 
   onSubmit() {
@@ -46,30 +50,47 @@ export class TwoFactorAuthComponent implements OnInit {
     this.isLoading.set(true);
     this.errorMessage.set('');
 
-    this.authService.verify2FA(code).subscribe({
-      next: () => {
+    this.authService.verifyLoginCode(code).subscribe({
+      next: (response) => {
+        this.isLoading.set(false);
+        // Rediriger vers le dashboard
         this.router.navigate(['/dashboard']);
       },
-      error: () => {
-        this.errorMessage.set('Code incorrect. Veuillez réessayer.');
+      error: (error) => {
+        this.errorMessage.set(
+          error.message || 'Code incorrect. Veuillez réessayer.'
+        );
         this.isLoading.set(false);
         this.otpCode.set('');
       },
     });
   }
 
-  resendOtp() {
-    this.isLoading.set(true);
-    this.authService.resend2FA().subscribe({
-      next: () => {
+  resendCode() {
+    this.isResending.set(true);
+    this.errorMessage.set('');
+    this.successMessage.set('');
+
+    this.authService.resendLoginCode().subscribe({
+      next: (response) => {
+        this.isResending.set(false);
+        this.successMessage.set('Un nouveau code a été envoyé à votre email');
         this.otpCode.set('');
-        this.errorMessage.set('');
-        this.isLoading.set(false);
+
+        // Effacer le message de succès après 3 secondes
+        setTimeout(() => {
+          this.successMessage.set('');
+        }, 3000);
       },
-      error: () => {
-        this.errorMessage.set('Erreur lors du renvoi du code');
-        this.isLoading.set(false);
+      error: (error) => {
+        this.errorMessage.set(error.message || 'Erreur lors du renvoi du code');
+        this.isResending.set(false);
       },
     });
+  }
+
+  // Alias pour compatibilité template
+  resendOtp() {
+    this.resendCode();
   }
 }

@@ -95,10 +95,15 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // User info
   currentUser = computed(() => this.authService.currentUser());
-  isManager = computed(() => this.currentUser()?.role === 'manager');
+  isManager = computed(
+    () =>
+      this.currentUser()?.role === 'MANAGER' ||
+      this.currentUser()?.role === 'ADMIN'
+  );
+  
   userName = computed(() => {
     const user = this.currentUser();
-    return user ? `${user.firstName} ${user.lastName}` : '';
+    return user ? `${user.first_name} ${user.last_name}` : '';
   });
 
   // Filters

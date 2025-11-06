@@ -24,17 +24,32 @@ export class ForgotPasswordComponent {
   constructor(private authService: AuthService, private router: Router) {}
 
   onSubmit() {
-    this.isLoading.set(true);
     this.errorMessage.set('');
+
+    if (!this.email()) {
+      this.errorMessage.set('Veuillez entrer votre adresse email');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(this.email())) {
+      this.errorMessage.set('Veuillez entrer un email valide');
+      return;
+    }
+
+    this.isLoading.set(true);
 
     this.authService.requestPasswordReset(this.email()).subscribe({
       next: (response) => {
-        this.authService.sessionId.set(response.resetSessionId);
+        this.isLoading.set(false);
+        // Rediriger vers la page de vérification du code
         this.router.navigate(['/verify-reset-code']);
       },
-      error: () => {
-        this.errorMessage.set('Email non trouvé');
+      error: (error) => {
         this.isLoading.set(false);
+        this.errorMessage.set(
+          error.message || "Erreur lors de l'envoi du code"
+        );
       },
     });
   }

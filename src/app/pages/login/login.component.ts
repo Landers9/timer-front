@@ -21,24 +21,48 @@ export class LoginComponent {
 
   email = signal('');
   password = signal('');
-  errorMessage = signal('');
-  isLoading = signal(false);
   showPassword = signal(false);
+  isLoading = signal(false);
+  errorMessage = signal('');
 
   constructor(private authService: AuthService, private router: Router) {}
 
+  togglePasswordVisibility() {
+    this.showPassword.update((val) => !val);
+  }
+
   onSubmit() {
-    this.isLoading.set(true);
+    // Reset error
     this.errorMessage.set('');
 
+    // Validation
+    if (!this.email() || !this.password()) {
+      this.errorMessage.set('Veuillez remplir tous les champs');
+      return;
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(this.email())) {
+      this.errorMessage.set('Veuillez entrer un email valide');
+      return;
+    }
+
+    this.isLoading.set(true);
+
+    // Appel API Login
     this.authService.login(this.email(), this.password()).subscribe({
       next: (response) => {
-        this.authService.sessionId.set(response.sessionId);
-        this.router.navigate(['/verify-2fa']);
-      },
-      error: () => {
-        this.errorMessage.set('Email ou mot de passe incorrect');
         this.isLoading.set(false);
+
+        if (response.requires_verification) {
+          // Rediriger vers la page de vérification 2FA
+          this.router.navigate(['/verify-2fa']);
+        }
+      },
+      error: (error) => {
+        this.isLoading.set(false);
+        this.errorMessage.set(error.message || 'Erreur de connexion');
       },
     });
   }

@@ -55,7 +55,7 @@ export class MainLayoutComponent {
   isMobileMenuOpen = signal(false);
 
   // Changez le rôle ici pour tester: 'employee' ou 'manager'
-  currentUserRole = signal<'employee' | 'manager'>('employee');
+  currentUserRole = signal<'employee' | 'manager'>('manager');
 
   // Utilisateur simulé pour les tests
   mockUser = computed<MockUser>(() => ({

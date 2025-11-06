@@ -174,10 +174,10 @@ export class ProfileComponent implements OnInit {
     // Load user profile from auth service
     const currentUser = this.authService.currentUser();
     if (currentUser) {
-      this.userProfile.update((profile) => ({
-        ...profile,
-        ...currentUser,
-      }));
+      // this.userProfile.update((profile) => ({
+      //   ...profile,
+      //   ...currentUser,
+      // }));
     }
   }
 

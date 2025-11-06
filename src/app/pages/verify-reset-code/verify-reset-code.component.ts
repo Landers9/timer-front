@@ -23,7 +23,8 @@ export class VerifyResetCodeComponent implements OnInit {
   constructor(private authService: AuthService, private router: Router) {}
 
   ngOnInit() {
-    if (!this.authService.sessionId()) {
+    // Vérifier qu'on a un token de reset
+    if (!this.authService.resetToken()) {
       this.router.navigate(['/forgot-password']);
     }
   }
@@ -32,6 +33,7 @@ export class VerifyResetCodeComponent implements OnInit {
     const input = event.target as HTMLInputElement;
     const value = input.value.replace(/[^\d]/g, '').slice(0, 6);
     this.resetCode.set(value);
+    this.errorMessage.set('');
   }
 
   onSubmit() {
@@ -45,17 +47,19 @@ export class VerifyResetCodeComponent implements OnInit {
     this.isLoading.set(true);
     this.errorMessage.set('');
 
-    this.authService
-      .verifyResetCode(code, this.authService.sessionId()!)
-      .subscribe({
-        next: () => {
-          this.router.navigate(['/new-password']);
-        },
-        error: () => {
-          this.errorMessage.set('Code incorrect. Veuillez réessayer.');
-          this.isLoading.set(false);
-          this.resetCode.set('');
-        },
-      });
+    this.authService.verifyResetCode(code).subscribe({
+      next: (response) => {
+        this.isLoading.set(false);
+        // Rediriger vers la page de nouveau mot de passe
+        this.router.navigate(['/new-password']);
+      },
+      error: (error) => {
+        this.errorMessage.set(
+          error.message || 'Code incorrect. Veuillez réessayer.'
+        );
+        this.isLoading.set(false);
+        this.resetCode.set('');
+      },
+    });
   }
 }
