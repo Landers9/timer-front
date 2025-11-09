@@ -9,6 +9,35 @@
     </p>
   </div>
 
+  <!-- Success Message -->
+  @if (successMessage()) {
+  <div class="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
+    <svg class="w-5 h-5 text-green-600 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+    </svg>
+    <p class="text-sm text-green-800">{{ successMessage() }}</p>
+  </div>
+  }
+
+  <!-- Error Message -->
+  @if (profileError()) {
+  <div class="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
+    <svg class="w-5 h-5 text-red-600 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+    </svg>
+    <p class="text-sm text-red-800">{{ profileError() }}</p>
+  </div>
+  }
+
+  <!-- Loading State -->
+  @if (isLoadingProfile()) {
+  <div class="flex items-center justify-center py-12">
+    <div class="text-center">
+      <div class="inline-block w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+      <p class="mt-4 text-sm text-dark-600">Chargement du profil...</p>
+    </div>
+  </div>
+  } @else {
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <!-- Left Column: Profile Card -->
     <div class="lg:col-span-1 space-y-6">
@@ -45,6 +74,7 @@
               *ngIf="!isEditMode()"
               (click)="enterEditMode()"
               class="btn-primary w-full"
+              [disabled]="isLoadingProfile()"
             >
               <lucide-angular [img]="EditIcon" class="w-4 h-4"></lucide-angular>
               <span>Modifier le profil</span>
@@ -53,6 +83,7 @@
             <button
               (click)="openPasswordModal()"
               class="btn-secondary w-full"
+              [disabled]="isLoadingProfile()"
             >
               <lucide-angular [img]="LockIcon" class="w-4 h-4"></lucide-angular>
               <span>Changer le mot de passe</span>
@@ -61,41 +92,32 @@
         </div>
       </div>
 
-      <!-- Quick Stats -->
-      <div class="bg-white rounded-lg border border-gray-200 p-5">
-        <h3 class="text-base font-semibold text-dark-900 mb-4">Statistiques</h3>
-
+      <!-- Stats Card -->
+      <div class="bg-white rounded-lg border border-gray-200 p-6">
+        <h3 class="text-base font-semibold text-dark-900 mb-4 flex items-center gap-2">
+          <lucide-angular [img]="TrendingUpIcon" class="w-5 h-5 text-primary-500"></lucide-angular>
+          Statistiques
+        </h3>
         <div class="space-y-4">
-          <div class="flex items-center justify-between">
-            <span class="text-sm text-dark-600">Heures totales</span>
-            <span class="text-sm font-bold text-dark-900">{{ stats().totalHours }}h</span>
+          <div class="pb-4 border-b border-gray-200">
+            <p class="text-xs text-dark-600 mb-1">Heures totales</p>
+            <p class="text-lg font-bold text-dark-900">{{ stats().totalHours }}h</p>
           </div>
-
-          <div class="flex items-center justify-between">
-            <span class="text-sm text-dark-600">Moyenne/jour</span>
-            <span class="text-sm font-bold text-dark-900">{{ stats().avgHoursPerDay }}h</span>
+          <div class="pb-4 border-b border-gray-200">
+            <p class="text-xs text-dark-600 mb-1">Moyenne / jour</p>
+            <p class="text-lg font-bold text-dark-900">{{ stats().avgHoursPerDay }}h</p>
           </div>
-
-          <div class="flex items-center justify-between">
-            <span class="text-sm text-dark-600">Taux de présence</span>
-            <span class="text-sm font-bold text-success">{{ stats().attendanceRate }}%</span>
+          <div class="pb-4 border-b border-gray-200">
+            <p class="text-xs text-dark-600 mb-1">Taux de présence</p>
+            <p class="text-lg font-bold text-dark-900">{{ stats().attendanceRate }}%</p>
           </div>
-
-          <div class="flex items-center justify-between">
-            <span class="text-sm text-dark-600">Jours travaillés</span>
-            <span class="text-sm font-bold text-dark-900">{{ stats().daysWorked }}</span>
+          <div class="pb-4 border-b border-gray-200">
+            <p class="text-xs text-dark-600 mb-1">Jours travaillés</p>
+            <p class="text-lg font-bold text-dark-900">{{ stats().daysWorked }}</p>
           </div>
-
-          <div class="flex items-center justify-between">
-            <span class="text-sm text-dark-600">Retards</span>
-            <span
-              [class.text-success]="stats().lateCount === 0"
-              [class.text-warning]="stats().lateCount > 0 && stats().lateCount <= 5"
-              [class.text-error]="stats().lateCount > 5"
-              class="text-sm font-bold"
-            >
-              {{ stats().lateCount }}
-            </span>
+          <div>
+            <p class="text-xs text-dark-600 mb-1">Retards</p>
+            <p class="text-lg font-bold text-dark-900">{{ stats().lateCount }}</p>
           </div>
         </div>
       </div>
@@ -103,22 +125,109 @@
 
     <!-- Right Column: Profile Details & Activity -->
     <div class="lg:col-span-2 space-y-6">
-      <!-- Profile Information -->
+      <!-- Profile Details -->
       <div class="bg-white rounded-lg border border-gray-200 p-6">
         <div class="flex items-center justify-between mb-6">
-          <h3 class="text-lg font-semibold text-dark-900">Informations personnelles</h3>
-
-          <div *ngIf="isEditMode()" class="flex gap-2">
-            <button (click)="cancelEdit()" class="btn-secondary">
+          <h3 class="text-base font-semibold text-dark-900">
+            Informations personnelles
+          </h3>
+          @if (isEditMode()) {
+          <div class="flex gap-2">
+            <button
+              (click)="cancelEdit()"
+              class="btn-secondary"
+              [disabled]="isSavingProfile()"
+            >
               <lucide-angular [img]="XIcon" class="w-4 h-4"></lucide-angular>
               <span>Annuler</span>
             </button>
-            <button (click)="saveProfile()" class="btn-primary">
+            <button
+              (click)="saveProfile()"
+              class="btn-primary"
+              [disabled]="isSavingProfile()"
+            >
+              @if (isSavingProfile()) {
+              <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              } @else {
               <lucide-angular [img]="SaveIcon" class="w-4 h-4"></lucide-angular>
-              <span>Enregistrer</span>
+              }
+              <span>{{ isSavingProfile() ? 'Enregistrement...' : 'Enregistrer' }}</span>
             </button>
           </div>
+          }
         </div>
+
+        <!-- Edit Mode -->
+        <form *ngIf="isEditMode()" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="input-label">Prénom *</label>
+            <input
+              type="text"
+              [(ngModel)]="formData().firstName"
+              name="firstName"
+              required
+              class="input-field"
+              [disabled]="isSavingProfile()"
+            />
+          </div>
+
+          <div>
+            <label class="input-label">Nom *</label>
+            <input
+              type="text"
+              [(ngModel)]="formData().lastName"
+              name="lastName"
+              required
+              class="input-field"
+              [disabled]="isSavingProfile()"
+            />
+          </div>
+
+          <div>
+            <label class="input-label">Email *</label>
+            <input
+              type="email"
+              [(ngModel)]="formData().email"
+              name="email"
+              required
+              class="input-field"
+              [disabled]="isSavingProfile()"
+            />
+          </div>
+
+          <div>
+            <label class="input-label">Téléphone</label>
+            <input
+              type="tel"
+              [(ngModel)]="formData().phoneNumber"
+              name="phoneNumber"
+              class="input-field"
+              [disabled]="isSavingProfile()"
+            />
+          </div>
+
+          <div>
+            <label class="input-label">Département</label>
+            <input
+              type="text"
+              [(ngModel)]="formData().department"
+              name="department"
+              class="input-field"
+              [disabled]="isSavingProfile()"
+            />
+          </div>
+
+          <div>
+            <label class="input-label">Poste</label>
+            <input
+              type="text"
+              [(ngModel)]="formData().position"
+              name="position"
+              class="input-field"
+              [disabled]="isSavingProfile()"
+            />
+          </div>
+        </form>
 
         <!-- View Mode -->
         <div *ngIf="!isEditMode()" class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -151,7 +260,9 @@
               <lucide-angular [img]="PhoneIcon" class="w-4 h-4"></lucide-angular>
               Téléphone
             </label>
-            <p class="text-sm text-dark-900 font-medium">{{ userProfile().phoneNumber }}</p>
+            <p class="text-sm text-dark-900 font-medium">
+              {{ userProfile().phoneNumber || 'Non renseigné' }}
+            </p>
           </div>
 
           <div class="space-y-1" *ngIf="userProfile().department">
@@ -170,113 +281,48 @@
             <p class="text-sm text-dark-900 font-medium">{{ userProfile().position }}</p>
           </div>
         </div>
-
-        <!-- Edit Mode -->
-        <form *ngIf="isEditMode()" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="input-label">Prénom</label>
-            <input
-              type="text"
-              [(ngModel)]="formData().firstName"
-              name="firstName"
-              class="input-field"
-            />
-          </div>
-
-          <div>
-            <label class="input-label">Nom</label>
-            <input
-              type="text"
-              [(ngModel)]="formData().lastName"
-              name="lastName"
-              class="input-field"
-            />
-          </div>
-
-          <div>
-            <label class="input-label">Email</label>
-            <input
-              type="email"
-              [(ngModel)]="formData().email"
-              name="email"
-              class="input-field"
-            />
-          </div>
-
-          <div>
-            <label class="input-label">Téléphone</label>
-            <input
-              type="tel"
-              [(ngModel)]="formData().phoneNumber"
-              name="phoneNumber"
-              class="input-field"
-            />
-          </div>
-
-          <div>
-            <label class="input-label">Département</label>
-            <input
-              type="text"
-              [(ngModel)]="formData().department"
-              name="department"
-              class="input-field"
-            />
-          </div>
-
-          <div>
-            <label class="input-label">Poste</label>
-            <input
-              type="text"
-              [(ngModel)]="formData().position"
-              name="position"
-              class="input-field"
-            />
-          </div>
-        </form>
       </div>
 
       <!-- Recent Activity -->
-      <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <div class="p-5 border-b border-gray-200">
-          <h3 class="text-lg font-semibold text-dark-900 flex items-center gap-2">
-            <lucide-angular [img]="ClockIcon" class="w-5 h-5"></lucide-angular>
-            Activité récente
-          </h3>
-        </div>
-
+      <div class="bg-white rounded-lg border border-gray-200 p-6">
+        <h3 class="text-base font-semibold text-dark-900 mb-4 flex items-center gap-2">
+          <lucide-angular [img]="ClockIcon" class="w-5 h-5 text-primary-500"></lucide-angular>
+          Activité récente
+        </h3>
         <div class="overflow-x-auto">
           <table class="w-full">
             <thead class="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th class="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase">
+                <th class="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">
                   Date
                 </th>
-                <th class="px-6 py-3 text-center text-xs font-semibold text-dark-600 uppercase">
+                <th class="px-6 py-3 text-center text-xs font-semibold text-dark-600 uppercase tracking-wider">
                   Arrivée
                 </th>
-                <th class="px-6 py-3 text-center text-xs font-semibold text-dark-600 uppercase">
+                <th class="px-6 py-3 text-center text-xs font-semibold text-dark-600 uppercase tracking-wider">
                   Départ
                 </th>
-                <th class="px-6 py-3 text-center text-xs font-semibold text-dark-600 uppercase">
+                <th class="px-6 py-3 text-center text-xs font-semibold text-dark-600 uppercase tracking-wider">
                   Total
                 </th>
-                <th class="px-6 py-3 text-center text-xs font-semibold text-dark-600 uppercase">
+                <th class="px-6 py-3 text-center text-xs font-semibold text-dark-600 uppercase tracking-wider">
                   Statut
                 </th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-200">
-              <tr *ngFor="let activity of recentActivities()" class="hover:bg-gray-50">
-                <td class="px-6 py-4 text-sm text-dark-900 whitespace-nowrap">
+              @for (activity of recentActivities(); track activity.id) {
+              <tr class="hover:bg-gray-50 transition-colors">
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-dark-900">
                   {{ formatDate(activity.date) }}
                 </td>
-                <td class="px-6 py-4 text-sm text-dark-600 text-center whitespace-nowrap">
+                <td class="px-6 py-4 text-center whitespace-nowrap text-sm text-dark-900 font-medium">
                   {{ activity.clockIn }}
                 </td>
-                <td class="px-6 py-4 text-sm text-dark-600 text-center whitespace-nowrap">
+                <td class="px-6 py-4 text-center whitespace-nowrap text-sm text-dark-900 font-medium">
                   {{ activity.clockOut || '-' }}
                 </td>
-                <td class="px-6 py-4 text-sm font-medium text-dark-900 text-center whitespace-nowrap">
+                <td class="px-6 py-4 text-center whitespace-nowrap text-sm text-dark-900 font-semibold">
                   {{ activity.totalHours ? activity.totalHours + 'h' : '-' }}
                 </td>
                 <td class="px-6 py-4 text-center whitespace-nowrap">
@@ -285,12 +331,14 @@
                   </span>
                 </td>
               </tr>
+              }
             </tbody>
           </table>
         </div>
       </div>
     </div>
   </div>
+  }
 </div>
 
 <!-- Change Password Modal -->
@@ -305,14 +353,24 @@
   >
     <div class="flex items-center justify-between p-6 border-b border-gray-200">
       <h2 class="text-xl font-semibold text-dark-900">Changer le mot de passe</h2>
-      <button (click)="closePasswordModal()" class="btn-icon">
+      <button (click)="closePasswordModal()" class="btn-icon" [disabled]="isChangingPassword()">
         <lucide-angular [img]="XIcon" class="w-5 h-5"></lucide-angular>
       </button>
     </div>
 
     <form (ngSubmit)="changePassword()" class="p-6 space-y-4">
+      <!-- Error Message -->
+      @if (passwordError()) {
+      <div class="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+        <svg class="w-5 h-5 text-red-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+        </svg>
+        <p class="text-sm text-red-800">{{ passwordError() }}</p>
+      </div>
+      }
+
       <div>
-        <label class="input-label">Mot de passe actuel</label>
+        <label class="input-label">Mot de passe actuel *</label>
         <input
           type="password"
           [(ngModel)]="passwordForm().currentPassword"
@@ -320,11 +378,12 @@
           required
           class="input-field"
           placeholder="••••••••"
+          [disabled]="isChangingPassword()"
         />
       </div>
 
       <div>
-        <label class="input-label">Nouveau mot de passe</label>
+        <label class="input-label">Nouveau mot de passe *</label>
         <input
           type="password"
           [(ngModel)]="passwordForm().newPassword"
@@ -333,12 +392,13 @@
           minlength="8"
           class="input-field"
           placeholder="••••••••"
+          [disabled]="isChangingPassword()"
         />
         <p class="text-xs text-dark-600 mt-1">Minimum 8 caractères</p>
       </div>
 
       <div>
-        <label class="input-label">Confirmer le mot de passe</label>
+        <label class="input-label">Confirmer le mot de passe *</label>
         <input
           type="password"
           [(ngModel)]="passwordForm().confirmPassword"
@@ -346,15 +406,30 @@
           required
           class="input-field"
           placeholder="••••••••"
+          [disabled]="isChangingPassword()"
         />
       </div>
 
       <div class="flex gap-3 pt-4">
-        <button type="button" (click)="closePasswordModal()" class="btn-secondary flex-1">
+        <button
+          type="button"
+          (click)="closePasswordModal()"
+          class="btn-secondary flex-1"
+          [disabled]="isChangingPassword()"
+        >
           Annuler
         </button>
-        <button type="submit" class="btn-primary flex-1">
-          Changer
+        <button
+          type="submit"
+          class="btn-primary flex-1"
+          [disabled]="isChangingPassword()"
+        >
+          @if (isChangingPassword()) {
+          <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+          <span>Changement...</span>
+          } @else {
+          <span>Changer</span>
+          }
         </button>
       </div>
     </form>

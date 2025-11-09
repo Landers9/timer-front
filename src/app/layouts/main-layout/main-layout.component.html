@@ -16,7 +16,10 @@
         >
           <span class="text-primary-500 font-bold text-sm">T</span>
         </div>
-        <span [class.hidden]="!isSidebarOpen()" class="font-semibold text-base text-dark-900">
+        <span
+          [class.hidden]="!isSidebarOpen()"
+          class="font-semibold text-base text-dark-900"
+        >
           TASK<span class="text-primary-500">Y</span>
         </span>
       </div>
@@ -75,53 +78,37 @@
       <div class="h-full px-4 sm:px-6 flex items-center justify-between gap-4">
         <!-- Left: Menu Toggle + Title -->
         <div class="flex items-center gap-3 min-w-0">
-          <button (click)="toggleSidebar()" class="btn-icon shrink-0 hidden md:flex">
+          <!-- Menu Toggle - Hidden on desktop (>=md) -->
+          <button (click)="toggleSidebar()" class="btn-icon hidden md:flex">
             <lucide-angular name="menu" [size]="20"></lucide-angular>
           </button>
-          <h1
-            class="text-xl font-semibold text-dark-900 truncate hidden sm:block"
-          >
-            Dashboard
-          </h1>
-          <!-- Mobile Logo (visible only on mobile) -->
-          <div class="sm:hidden flex items-center gap-2">
-            <div
-              class="w-7 h-7 bg-dark-900 rounded flex items-center justify-center"
-            >
-              <span class="text-primary-500 font-bold text-sm">T</span>
-            </div>
-            <span class="font-semibold text-base text-dark-900">
-              TASK<span class="text-primary-500">Y</span>
-            </span>
-          </div>
+
+          <!-- Mobile Menu Toggle - Visible only on mobile (<md) -->
+          @if (isManager()) {
+          <button (click)="toggleMobileMenu()" class="btn-icon md:hidden">
+            <lucide-angular name="menu" [size]="20"></lucide-angular>
+          </button>
+          }
         </div>
 
-        <!-- Right: Search, Notifications, Profile -->
-        <div class="flex items-center gap-2 sm:gap-3">
-          <!-- Notifications -->
-          <button class="btn-icon relative">
-            <lucide-angular name="bell" [size]="20"></lucide-angular>
-            @if (notificationCount() > 0) {
-            <span
-              class="absolute top-1 right-1 w-4 h-4 bg-error text-white text-[10px] font-bold rounded-full flex items-center justify-center"
-            >
-              {{ notificationCount() > 9 ? "9+" : notificationCount() }}
-            </span>
-            }
-          </button>
-
+        <!-- Right: User Profile -->
+        <div class="flex items-center gap-3 shrink-0">
           <!-- User Profile -->
-          @if (mockUser(); as user) {
-          <div
-            class="flex items-center gap-2 pl-2 sm:pl-3 border-l border-gray-200 hidden sm:flex"
-          >
-            <!-- User Info (Desktop) -->
-            <div class="text-right hidden lg:block">
-              <p class="font-medium text-sm text-dark-900 leading-tight">
+          @if (currentUser(); as user) {
+          <div class="flex items-center gap-3">
+            <!-- User Info (hidden on small screens) -->
+            <div class="hidden sm:block text-right">
+              <p
+                class="text-sm font-semibold text-dark-900 truncate max-w-[150px]"
+              >
                 {{ user.firstName }} {{ user.lastName }}
               </p>
-              <p class="text-xs text-gray-500 leading-tight">
-                {{ user.role === "manager" ? "Manager" : "Employee" }}
+              <p class="text-xs text-dark-600">
+                {{
+                  user.role === "MANAGER" || user.role === "ADMIN"
+                    ? "Manager"
+                    : "Employee"
+                }}
               </p>
             </div>
             <!-- Avatar -->
@@ -136,6 +123,16 @@
               [alt]="user.firstName"
               class="avatar cursor-pointer rounded-md w-8 h-8"
             />
+          </div>
+          } @else if (isLoadingUser()) {
+          <div class="flex items-center gap-3">
+            <div class="hidden sm:block text-right">
+              <div
+                class="h-4 w-24 bg-gray-200 animate-pulse rounded mb-1"
+              ></div>
+              <div class="h-3 w-16 bg-gray-200 animate-pulse rounded"></div>
+            </div>
+            <div class="w-8 h-8 bg-gray-200 animate-pulse rounded-md"></div>
           </div>
           }
         </div>
@@ -164,11 +161,11 @@
   class="fixed left-0 top-0 h-full w-60 bg-white border-r border-gray-200 z-50 flex flex-col md:hidden"
 >
   <!-- Header -->
-  <div class="h-16 flex items-center justify-between px-4 border-b border-gray-200 shrink-0">
+  <div
+    class="h-16 flex items-center justify-between px-4 border-b border-gray-200 shrink-0"
+  >
     <div class="flex items-center gap-2">
-      <div
-        class="w-7 h-7 bg-dark-900 rounded flex items-center justify-center"
-      >
+      <div class="w-7 h-7 bg-dark-900 rounded flex items-center justify-center">
         <span class="text-primary-500 font-bold text-sm">T</span>
       </div>
       <span class="font-semibold text-base text-dark-900">
@@ -180,14 +177,14 @@
     </button>
   </div>
 
-  <!-- Navigation - Manager Only -->
+  <!-- Navigation -->
   <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
     @for (item of managerSidebarMenuItems(); track item.route) {
     <a
       [routerLink]="item.route"
       routerLinkActive="active"
-      (click)="closeMobileMenu()"
       class="sidebar-item"
+      (click)="closeMobileMenu()"
     >
       <lucide-angular
         [name]="item.icon"
@@ -198,165 +195,162 @@
     </a>
     }
   </nav>
-
-  <!-- Separator -->
-  <div class="border-t border-gray-200 mx-3 my-2"></div>
-
-  <!-- Logout Button -->
-  <div class="px-3 pb-4">
-    <button
-      (click)="logout()"
-      class="sidebar-item w-full text-left hover:bg-red-50 hover:text-error transition-colors justify-start"
-    >
-      <lucide-angular name="log-out" [size]="18"></lucide-angular>
-      <span class="truncate">Logout</span>
-    </button>
-  </div>
 </aside>
 }
 
 <!-- ========================================
-     BOTTOM TAB MENU - Mobile Only
+     MOBILE BOTTOM TAB BAR
      ======================================== -->
 <nav
-  class="fixed bottom-0 left-0 right-0 h-20 bg-white border-t border-gray-200 md:hidden z-40 flex items-center justify-around px-2"
+  class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 md:hidden z-30 safe-area-pb"
 >
-  @if (mockUser().role === 'manager') {
-  <!-- MANAGER BOTTOM MENU -->
+  @if (isManager()) {
+  <!-- Manager: Dashboard, Clock, Profile, Logout -->
+  <div class="flex items-center justify-around h-20 px-2">
+    <a
+      [routerLink]="'/dashboard'"
+      routerLinkActive="active"
+      class="mobile-tab-item group"
+    >
+      <div class="flex items-center justify-center">
+        <lucide-angular
+          name="layout-dashboard"
+          [size]="24"
+          class="text-dark-500 group-[.active]:text-primary-500 transition-colors"
+        ></lucide-angular>
+      </div>
+      <span
+        class="text-xs text-dark-600 group-[.active]:text-primary-500 transition-colors mt-1"
+        >Dashboard</span
+      >
+    </a>
 
-  <!-- Menu Button -->
-  <button
-    (click)="toggleMobileMenu()"
-    class="mobile-tab-item group"
-    [class.active]="isMobileMenuOpen()"
-  >
-    <div class="flex items-center justify-center">
-      <lucide-angular
-        name="menu"
-        [size]="24"
-        class="transition-colors"
-        [class.text-primary-500]="isMobileMenuOpen()"
-        [class.text-dark-500]="!isMobileMenuOpen()"
-      ></lucide-angular>
-    </div>
-    <span
-      class="text-xs mt-1 transition-colors"
-      [class.text-primary-500]="isMobileMenuOpen()"
-      [class.text-dark-600]="!isMobileMenuOpen()"
-    >Menu</span>
-  </button>
+    <a
+      [routerLink]="'/clock'"
+      routerLinkActive="active"
+      class="mobile-tab-item group"
+    >
+      <div class="flex items-center justify-center">
+        <lucide-angular
+          name="clock"
+          [size]="24"
+          class="text-dark-500 group-[.active]:text-primary-500 transition-colors"
+        ></lucide-angular>
+      </div>
+      <span
+        class="text-xs text-dark-600 group-[.active]:text-primary-500 transition-colors mt-1"
+        >Clock</span
+      >
+    </a>
 
-  <!-- Clock -->
-  <a
-    [routerLink]="'/clock'"
-    routerLinkActive="active"
-    class="mobile-tab-item group"
-  >
-    <div class="flex items-center justify-center">
-      <lucide-angular
-        name="clock"
-        [size]="24"
-        class="text-dark-500 group-[.active]:text-primary-500 transition-colors"
-      ></lucide-angular>
-    </div>
-    <span class="text-xs text-dark-600 group-[.active]:text-primary-500 transition-colors mt-1">Clock</span>
-  </a>
+    <a
+      [routerLink]="'/profile'"
+      routerLinkActive="active"
+      class="mobile-tab-item group"
+    >
+      <div class="flex items-center justify-center">
+        <lucide-angular
+          name="user"
+          [size]="24"
+          class="text-dark-500 group-[.active]:text-primary-500 transition-colors"
+        ></lucide-angular>
+      </div>
+      <span
+        class="text-xs text-dark-600 group-[.active]:text-primary-500 transition-colors mt-1"
+        >Profile</span
+      >
+    </a>
 
-  <!-- Profile -->
-  <a
-    [routerLink]="'/profile'"
-    routerLinkActive="active"
-    class="mobile-tab-item group"
-  >
-    <div class="flex items-center justify-center">
-      <lucide-angular
-        name="user"
-        [size]="24"
-        class="text-dark-500 group-[.active]:text-primary-500 transition-colors"
-      ></lucide-angular>
-    </div>
-    <span class="text-xs text-dark-600 group-[.active]:text-primary-500 transition-colors mt-1">Profile</span>
-  </a>
-
-  <!-- Logout -->
-  <button
-    (click)="logout()"
-    class="mobile-tab-item group hover:text-error transition-colors"
-  >
-    <div class="flex items-center justify-center">
-      <lucide-angular
-        name="log-out"
-        [size]="24"
-        class="text-dark-500 group-hover:text-error transition-colors"
-      ></lucide-angular>
-    </div>
-    <span class="text-xs text-dark-600 group-hover:text-error transition-colors mt-1">Logout</span>
-  </button>
-
+    <button
+      (click)="logout()"
+      class="mobile-tab-item group hover:text-error transition-colors"
+    >
+      <div class="flex items-center justify-center">
+        <lucide-angular
+          name="log-out"
+          [size]="24"
+          class="text-dark-500 group-hover:text-error transition-colors"
+        ></lucide-angular>
+      </div>
+      <span
+        class="text-xs text-dark-600 group-hover:text-error transition-colors mt-1"
+        >Logout</span
+      >
+    </button>
+  </div>
   } @else {
-  <!-- EMPLOYEE BOTTOM MENU -->
+  <!-- Employee: Dashboard, Clock, Profile, Logout -->
+  <div class="flex items-center justify-around h-20 px-2">
+    <a
+      [routerLink]="'/dashboard'"
+      routerLinkActive="active"
+      class="mobile-tab-item group"
+    >
+      <div class="flex items-center justify-center">
+        <lucide-angular
+          name="layout-dashboard"
+          [size]="24"
+          class="text-dark-500 group-[.active]:text-primary-500 transition-colors"
+        ></lucide-angular>
+      </div>
+      <span
+        class="text-xs text-dark-600 group-[.active]:text-primary-500 transition-colors mt-1"
+        >Dashboard</span
+      >
+    </a>
 
-  <!-- Dashboard -->
-  <a
-    [routerLink]="'/dashboard'"
-    routerLinkActive="active"
-    class="mobile-tab-item group"
-  >
-    <div class="flex items-center justify-center">
-      <lucide-angular
-        name="layout-dashboard"
-        [size]="24"
-        class="text-dark-500 group-[.active]:text-primary-500 transition-colors"
-      ></lucide-angular>
-    </div>
-    <span class="text-xs text-dark-600 group-[.active]:text-primary-500 transition-colors mt-1">Dashboard</span>
-  </a>
+    <a
+      [routerLink]="'/clock'"
+      routerLinkActive="active"
+      class="mobile-tab-item group"
+    >
+      <div class="flex items-center justify-center">
+        <lucide-angular
+          name="clock"
+          [size]="24"
+          class="text-dark-500 group-[.active]:text-primary-500 transition-colors"
+        ></lucide-angular>
+      </div>
+      <span
+        class="text-xs text-dark-600 group-[.active]:text-primary-500 transition-colors mt-1"
+        >Clock</span
+      >
+    </a>
 
-  <!-- Clock -->
-  <a
-    [routerLink]="'/clock'"
-    routerLinkActive="active"
-    class="mobile-tab-item group"
-  >
-    <div class="flex items-center justify-center">
-      <lucide-angular
-        name="clock"
-        [size]="24"
-        class="text-dark-500 group-[.active]:text-primary-500 transition-colors"
-      ></lucide-angular>
-    </div>
-    <span class="text-xs text-dark-600 group-[.active]:text-primary-500 transition-colors mt-1">Clock</span>
-  </a>
+    <a
+      [routerLink]="'/profile'"
+      routerLinkActive="active"
+      class="mobile-tab-item group"
+    >
+      <div class="flex items-center justify-center">
+        <lucide-angular
+          name="user"
+          [size]="24"
+          class="text-dark-500 group-[.active]:text-primary-500 transition-colors"
+        ></lucide-angular>
+      </div>
+      <span
+        class="text-xs text-dark-600 group-[.active]:text-primary-500 transition-colors mt-1"
+        >Profile</span
+      >
+    </a>
 
-  <!-- Profile -->
-  <a
-    [routerLink]="'/profile'"
-    routerLinkActive="active"
-    class="mobile-tab-item group"
-  >
-    <div class="flex items-center justify-center">
-      <lucide-angular
-        name="user"
-        [size]="24"
-        class="text-dark-500 group-[.active]:text-primary-500 transition-colors"
-      ></lucide-angular>
-    </div>
-    <span class="text-xs text-dark-600 group-[.active]:text-primary-500 transition-colors mt-1">Profile</span>
-  </a>
-
-  <!-- Logout -->
-  <button
-    (click)="logout()"
-    class="mobile-tab-item group hover:text-error transition-colors"
-  >
-    <div class="flex items-center justify-center">
-      <lucide-angular
-        name="log-out"
-        [size]="24"
-        class="text-dark-500 group-hover:text-error transition-colors"
-      ></lucide-angular>
-    </div>
-    <span class="text-xs text-dark-600 group-hover:text-error transition-colors mt-1">Logout</span>
-  </button>
+    <button
+      (click)="logout()"
+      class="mobile-tab-item group hover:text-error transition-colors"
+    >
+      <div class="flex items-center justify-center">
+        <lucide-angular
+          name="log-out"
+          [size]="24"
+          class="text-dark-500 group-hover:text-error transition-colors"
+        ></lucide-angular>
+      </div>
+      <span
+        class="text-xs text-dark-600 group-hover:text-error transition-colors mt-1"
+        >Logout</span
+      >
+    </button>
+  </div>
   }
 </nav>
