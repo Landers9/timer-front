@@ -2,126 +2,122 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
-import { tap, catchError } from 'rxjs/operators';
+import { catchError } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
+import { User } from '../models/user.model';
 
-// Interface pour la réponse de l'API /users/me/
-export interface ApiUserResponse {
-  id: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  phone_number: string | null;
-  role: 'EMPLOYEE' | 'MANAGER' | 'ADMIN';
-  is_active: boolean;
-  is_verified: boolean;
-  created_at: string;
-  updated_at: string;
-  device_id: string | null;
-  fingerprint_id: string | null;
-  position: string | null;
-  department: string | null;
-  hire_date: string | null;
-  created_by: string | null;
-}
-
-// Interface pour la mise à jour du profil utilisateur
+/**
+ * Interface pour la mise à jour du profil utilisateur
+ * Seuls ces champs peuvent être modifiés via PATCH /users/{id}/
+ */
 export interface UpdateUserRequest {
-  phone_number?: string;
   email: string;
   first_name: string;
   last_name: string;
+  phone_number?: string;
   position?: string;
   department?: string;
 }
 
-// Interface pour le changement de mot de passe
+/**
+ * Interface pour le changement de mot de passe
+ * Utilisé avec POST /users/{id}/change-password/
+ */
 export interface ChangePasswordRequest {
   old_password: string;
   new_password: string;
 }
 
-@Injectable({ providedIn: 'root' })
+/**
+ * Interface pour la réponse du changement de mot de passe
+ */
+export interface ChangePasswordResponse {
+  detail: string;
+}
+
+@Injectable({
+  providedIn: 'root',
+})
 export class UserService {
   private apiUrl = `${environment.apiUrl}/users`;
 
   constructor(private http: HttpClient) {}
 
   /**
-   * Récupérer les informations de l'utilisateur connecté
-   * GET /api/v1/users/me/
+   * GET /users/me/ - Récupérer l'utilisateur actuellement connecté
+   * @returns Observable<User>
    */
-  getCurrentUser(): Observable<ApiUserResponse> {
-    return this.http.get<ApiUserResponse>(`${this.apiUrl}/me/`).pipe(
-      tap((response) => {
-        console.log('User data fetched:', response);
-      }),
-      catchError(this.handleError)
-    );
+  getCurrentUser(): Observable<User> {
+    return this.http
+      .get<User>(`${this.apiUrl}/me/`)
+      .pipe(catchError(this.handleError));
   }
 
   /**
-   * Mettre à jour les informations de l'utilisateur
-   * PUT /api/v1/users/{id}/
+   * PUT /users/{id}/ - Mettre à jour le profil utilisateur
+   * @param userId - ID de l'utilisateur
+   * @param userData - Données à mettre à jour
+   * @returns Observable<User>
    */
-  updateUser(
+  updateUser(userId: string, userData: UpdateUserRequest): Observable<User> {
+    return this.http
+      .put<User>(`${this.apiUrl}/${userId}/`, userData)
+      .pipe(catchError(this.handleError));
+  }
+
+  /**
+   * PUT /users/change-password/{id}/ - Changer le mot de passe
+   * @param userId - ID de l'utilisateur
+   * @param passwordData - Ancien et nouveau mot de passe
+   * @returns Observable<ChangePasswordResponse>
+   */
+  changePassword(
     userId: string,
-    data: UpdateUserRequest
-  ): Observable<ApiUserResponse> {
+    passwordData: ChangePasswordRequest
+  ): Observable<ChangePasswordResponse> {
     return this.http
-      .put<ApiUserResponse>(`${this.apiUrl}/${userId}/`, data)
-      .pipe(
-        tap((response) => {
-          console.log('User updated:', response);
-        }),
-        catchError(this.handleError)
-      );
-  }
-
-  /**
-   * Changer le mot de passe de l'utilisateur
-   * PUT /api/v1/users/change-password/{id}/
-   */
-  changePassword(userId: string, data: ChangePasswordRequest): Observable<any> {
-    return this.http
-      .put<any>(`${this.apiUrl}/change-password/${userId}/`, data)
-      .pipe(
-        tap((response) => {
-          console.log('Password changed successfully:', response);
-        }),
-        catchError(this.handleError)
-      );
+      .put<ChangePasswordResponse>(
+        `${this.apiUrl}/change-password/${userId}/`,
+        passwordData
+      )
+      .pipe(catchError(this.handleError));
   }
 
   /**
    * Gestion des erreurs HTTP
+   * @param error - Erreur HTTP
+   * @returns Observable avec le message d'erreur
    */
   private handleError(error: HttpErrorResponse): Observable<never> {
     let errorMessage = 'Une erreur est survenue';
 
     if (error.error instanceof ErrorEvent) {
-      // Erreur client
+      // Erreur côté client
       errorMessage = `Erreur: ${error.error.message}`;
     } else {
-      // Erreur serveur
-      if (error.error?.detail) {
-        errorMessage = error.error.detail;
-      } else if (error.error?.message) {
-        errorMessage = error.error.message;
-      } else if (error.status === 400) {
-        errorMessage = 'Données invalides';
-      } else if (error.status === 401) {
-        errorMessage = 'Non autorisé';
+      // Erreur côté serveur
+      if (error.status === 401) {
+        errorMessage = 'Session expirée. Veuillez vous reconnecter.';
+      } else if (error.status === 403) {
+        errorMessage = "Vous n'avez pas les droits nécessaires.";
       } else if (error.status === 404) {
-        errorMessage = 'Utilisateur non trouvé';
-      } else if (error.status === 0) {
-        errorMessage = 'Impossible de contacter le serveur';
-      } else {
-        errorMessage = `Erreur ${error.status}: ${error.statusText}`;
+        errorMessage = 'Ressource introuvable.';
+      } else if (error.status === 400) {
+        // Erreurs de validation de l'API
+        if (error.error && typeof error.error === 'object') {
+          const errors = error.error;
+          const firstKey = Object.keys(errors)[0];
+          if (firstKey && Array.isArray(errors[firstKey])) {
+            errorMessage = errors[firstKey][0];
+          } else if (errors.detail) {
+            errorMessage = errors.detail;
+          }
+        }
+      } else if (error.status === 500) {
+        errorMessage = 'Erreur serveur. Veuillez réessayer plus tard.';
       }
     }
 
-    console.error('User Service Error:', error);
-    return throwError(() => new Error(errorMessage));
+    return throwError(() => ({ message: errorMessage, error }));
   }
 }

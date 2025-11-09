@@ -15,8 +15,11 @@ import {
   Lock,
   Clock,
   TrendingUp,
+  Eye,
+  EyeOff,
 } from 'lucide-angular';
-import { UserService, ApiUserResponse } from '../../services/user.service';
+import { UserService } from '../../services/user.service';
+import { User as UserModel } from '../../models/user.model';
 
 interface UserProfile {
   id: string;
@@ -25,26 +28,9 @@ interface UserProfile {
   email: string;
   phoneNumber: string;
   role: 'EMPLOYEE' | 'MANAGER' | 'ADMIN';
-  joinDate: Date;
-  department?: string;
-  position?: string;
-}
-
-interface ProfileStats {
-  totalHours: number;
-  avgHoursPerDay: number;
-  attendanceRate: number;
-  daysWorked: number;
-  lateCount: number;
-}
-
-interface RecentActivity {
-  id: number;
-  date: Date;
-  clockIn: string;
-  clockOut: string | null;
-  totalHours: number | null;
-  status: 'completed' | 'in-progress';
+  createdAt: Date;
+  department: string;
+  position: string;
 }
 
 @Component({
@@ -65,8 +51,8 @@ export class ProfileComponent implements OnInit {
   readonly SaveIcon = Save;
   readonly XIcon = X;
   readonly LockIcon = Lock;
-  readonly ClockIcon = Clock;
-  readonly TrendingUpIcon = TrendingUp;
+  readonly EyeIcon = Eye;
+  readonly EyeOffIcon = EyeOff;
 
   // Loading states
   isLoadingProfile = signal(true);
@@ -76,6 +62,11 @@ export class ProfileComponent implements OnInit {
   // Edit mode
   isEditMode = signal(false);
   showPasswordModal = signal(false);
+
+  // Show/Hide password
+  showCurrentPassword = signal(false);
+  showNewPassword = signal(false);
+  showConfirmPassword = signal(false);
 
   // Error messages
   profileError = signal<string | null>(null);
@@ -90,9 +81,9 @@ export class ProfileComponent implements OnInit {
     email: '',
     phoneNumber: '',
     role: 'EMPLOYEE',
-    joinDate: new Date(),
-    department: undefined,
-    position: undefined,
+    createdAt: new Date(),
+    department: '',
+    position: '',
   });
 
   // Form data for editing
@@ -104,43 +95,6 @@ export class ProfileComponent implements OnInit {
     newPassword: '',
     confirmPassword: '',
   });
-
-  // Stats (mock data - to be replaced with real API later)
-  stats = signal<ProfileStats>({
-    totalHours: 152,
-    avgHoursPerDay: 7.6,
-    attendanceRate: 95,
-    daysWorked: 20,
-    lateCount: 2,
-  });
-
-  // Recent activities (mock data - to be replaced with real API later)
-  recentActivities = signal<RecentActivity[]>([
-    {
-      id: 1,
-      date: new Date('2024-01-15'),
-      clockIn: '08:30',
-      clockOut: '17:00',
-      totalHours: 8.5,
-      status: 'completed',
-    },
-    {
-      id: 2,
-      date: new Date('2024-01-14'),
-      clockIn: '09:00',
-      clockOut: '18:00',
-      totalHours: 9,
-      status: 'completed',
-    },
-    {
-      id: 3,
-      date: new Date('2024-01-13'),
-      clockIn: '08:45',
-      clockOut: null,
-      totalHours: null,
-      status: 'in-progress',
-    },
-  ]);
 
   // Computed properties
   fullName = computed(() => {
@@ -156,7 +110,7 @@ export class ProfileComponent implements OnInit {
   memberSince = computed(() => {
     const profile = this.userProfile();
     const now = new Date();
-    const joined = profile.joinDate;
+    const joined = profile.createdAt;
     const months =
       (now.getFullYear() - joined.getFullYear()) * 12 +
       (now.getMonth() - joined.getMonth());
@@ -177,7 +131,7 @@ export class ProfileComponent implements OnInit {
     this.profileError.set(null);
 
     this.userService.getCurrentUser().subscribe({
-      next: (response: ApiUserResponse) => {
+      next: (response: UserModel) => {
         this.mapApiResponseToProfile(response);
         this.isLoadingProfile.set(false);
       },
@@ -192,7 +146,7 @@ export class ProfileComponent implements OnInit {
   /**
    * Mapper la réponse API vers notre interface UserProfile
    */
-  private mapApiResponseToProfile(response: ApiUserResponse): void {
+  private mapApiResponseToProfile(response: UserModel): void {
     this.userProfile.set({
       id: response.id,
       firstName: response.first_name,
@@ -200,9 +154,9 @@ export class ProfileComponent implements OnInit {
       email: response.email,
       phoneNumber: response.phone_number || '',
       role: response.role,
-      joinDate: new Date(response.created_at),
-      department: response.department || undefined,
-      position: response.position || undefined,
+      createdAt: new Date(response.created_at),
+      department: response.department || '',
+      position: response.position || '',
     });
   }
 
@@ -245,7 +199,7 @@ export class ProfileComponent implements OnInit {
     };
 
     this.userService.updateUser(profile.id, updateData).subscribe({
-      next: (response: ApiUserResponse) => {
+      next: (response: UserModel) => {
         this.mapApiResponseToProfile(response);
         this.isEditMode.set(false);
         this.isSavingProfile.set(false);
@@ -273,6 +227,10 @@ export class ProfileComponent implements OnInit {
       newPassword: '',
       confirmPassword: '',
     });
+    // Réinitialiser les visibilités
+    this.showCurrentPassword.set(false);
+    this.showNewPassword.set(false);
+    this.showConfirmPassword.set(false);
   }
 
   closePasswordModal(): void {
@@ -330,24 +288,11 @@ export class ProfileComponent implements OnInit {
   }
 
   // Helpers
-  formatDate(date: Date): string {
-    return new Intl.DateTimeFormat('fr-FR', {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    }).format(date);
-  }
-
   formatJoinDate(date: Date): string {
     return new Intl.DateTimeFormat('fr-FR', {
       month: 'long',
       year: 'numeric',
     }).format(date);
-  }
-
-  getStatusBadgeClass(status: string): string {
-    return status === 'completed' ? 'badge-success' : 'badge-warning';
   }
 
   getRoleBadge(role: string): string {

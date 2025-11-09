@@ -27,7 +27,8 @@ import {
   X,
 } from 'lucide-angular';
 import { AuthService } from '../../services/auth.service';
-import { UserService, ApiUserResponse } from '../../services/user.service';
+import { UserService } from '../../services/user.service';
+import { User as UserModel } from '../../models/user.model';
 
 interface MenuItem {
   icon: string;
@@ -138,7 +139,7 @@ export class MainLayoutComponent implements OnInit {
   private loadCurrentUser(): void {
     this.isLoadingUser.set(true);
     this.userService.getCurrentUser().subscribe({
-      next: (response: ApiUserResponse) => {
+      next: (response: UserModel) => {
         this.currentUser.set({
           firstName: response.first_name,
           lastName: response.last_name,

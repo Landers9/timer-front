@@ -47,7 +47,6 @@ img.rounded-full:hover {
 /* Stats section */
 .space-y-4 > div {
   padding-bottom: 1rem;
-  border-bottom: 1px solid #f3f4f6;
 }
 
 .space-y-4 > div:last-child {
