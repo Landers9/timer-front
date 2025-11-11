@@ -16,453 +16,534 @@
     </button>
   </div>
 
-  <!-- Filters -->
-  <div class="bg-white rounded-lg border border-gray-200 p-4">
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <!-- Search -->
-      <div class="relative">
-        <input
-          type="text"
-          [(ngModel)]="searchQuery"
-          placeholder="Rechercher par nom ou email..."
-          class="search-input"
-        />
-      </div>
+  <!-- Error Message -->
+  @if (errorMessage()) {
+    <div class="bg-error bg-opacity-10 border border-error text-error px-4 py-3 rounded">
+      {{ errorMessage() }}
+    </div>
+  }
 
-      <!-- Role Filter -->
-      <div>
-        <select [(ngModel)]="roleFilter" class="input-field">
-          <option value="all">Tous les rôles</option>
-          <option value="employee">Employés</option>
-          <option value="manager">Managers</option>
-        </select>
+  <!-- Loading State -->
+  @if (isLoadingList()) {
+    <div class="flex items-center justify-center py-12">
+      <div class="text-center">
+        <div class="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <p class="text-sm text-dark-600">Chargement...</p>
       </div>
     </div>
-  </div>
+  }
 
-  <!-- Users Table -->
-  <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
-    <div class="overflow-x-auto">
-      <table class="w-full">
-        <thead class="bg-gray-50 border-b border-gray-200">
-          <tr>
-            <th class="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">
-              Nom complet
-            </th>
-            <th class="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">
-              Email
-            </th>
-            <th class="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">
-              Téléphone
-            </th>
-            <th class="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">
-              Rôle
-            </th>
-            <th class="px-6 py-3 text-right text-xs font-semibold text-dark-600 uppercase tracking-wider">
-              Actions
-            </th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-200">
-          <tr
-            *ngFor="let user of filteredUsers()"
-            class="hover:bg-gray-50 transition-colors"
-          >
-            <td class="px-6 py-4 whitespace-nowrap">
-              <div class="text-sm font-medium text-dark-900">
-                {{ getUserFullName(user) }}
-              </div>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-              <div class="text-sm text-dark-600">{{ user.email }}</div>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-              <div class="text-sm text-dark-600">{{ user.phoneNumber }}</div>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-              <span [class]="'badge ' + getRoleBadgeClass(user.role)">
-                {{ user.role === 'manager' ? 'Manager' : 'Employé' }}
-              </span>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-              <div class="flex items-center justify-end gap-2">
-                <button
-                  (click)="openDetailsModal(user)"
-                  class="btn-icon"
-                  title="Voir les détails"
-                >
-                  <lucide-angular [img]="EyeIcon" class="w-4 h-4"></lucide-angular>
-                </button>
-                <button
-                  (click)="openEditModal(user)"
-                  class="btn-icon"
-                  title="Modifier"
-                >
-                  <lucide-angular [img]="EditIcon" class="w-4 h-4"></lucide-angular>
-                </button>
-                <button
-                  (click)="openDeleteModal(user)"
-                  class="btn-icon text-error hover:bg-red-50"
-                  title="Supprimer"
-                >
-                  <lucide-angular [img]="Trash2Icon" class="w-4 h-4"></lucide-angular>
-                </button>
-              </div>
-            </td>
-          </tr>
+  @if (!isLoadingList()) {
+    <!-- Filters -->
+    <div class="bg-white rounded border border-gray-200 p-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Search -->
+        <div class="relative">
+          <input
+            type="text"
+            [(ngModel)]="searchQuery"
+            placeholder="Rechercher par nom ou email..."
+            class="search-input"
+          />
+        </div>
 
-          <!-- Empty State -->
-          <tr *ngIf="filteredUsers().length === 0">
-            <td colspan="5" class="px-6 py-12 text-center">
-              <p class="text-dark-600">Aucun utilisateur trouvé</p>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+        <!-- Role Filter -->
+        <div>
+          <select [(ngModel)]="roleFilter" class="input-field">
+            <option value="all">Tous les rôles</option>
+            <option value="EMPLOYEE">Employés</option>
+            <option value="MANAGER">Managers</option>
+            <option value="ADMIN">Administrateurs</option>
+          </select>
+        </div>
+      </div>
     </div>
-  </div>
+
+    <!-- Users Table -->
+    <div class="bg-white rounded border border-gray-200 overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead class="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">
+                Nom complet
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">
+                Email
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">
+                Téléphone
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">
+                Rôle
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">
+                Département
+              </th>
+              <th class="px-6 py-3 text-right text-xs font-semibold text-dark-600 uppercase tracking-wider">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-200">
+            @for (user of filteredUsers(); track user.id) {
+              <tr class="hover:bg-gray-50 transition-colors">
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm font-medium text-dark-900">
+                    {{ getUserFullName(user) }}
+                  </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm text-dark-700">{{ user.email }}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm text-dark-700">{{ user.phoneNumber || 'N/A' }}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <span [class]="'badge ' + getRoleBadgeClass(user.role)">
+                    {{ getRoleLabel(user.role) }}
+                  </span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm text-dark-700">{{ user.department || 'N/A' }}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <div class="flex items-center justify-end gap-2">
+                    <button (click)="openDetailsModal(user)" class="btn-icon" title="Détails">
+                      <lucide-angular [img]="EyeIcon" class="w-4 h-4"></lucide-angular>
+                    </button>
+                    <button (click)="openEditModal(user)" class="btn-icon" title="Modifier">
+                      <lucide-angular [img]="EditIcon" class="w-4 h-4"></lucide-angular>
+                    </button>
+                    <button (click)="openDeleteModal(user)" class="btn-icon" title="Supprimer">
+                      <lucide-angular [img]="Trash2Icon" class="w-4 h-4"></lucide-angular>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="6" class="px-6 py-12 text-center">
+                  <div class="text-dark-600">Aucun utilisateur trouvé</div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
 </div>
 
 <!-- Create Modal -->
-<div
-  *ngIf="showCreateModal()"
-  class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-  (click)="closeModals()"
->
-  <div
-    class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4"
-    (click)="$event.stopPropagation()"
-  >
-    <div class="flex items-center justify-between p-6 border-b border-gray-200">
-      <h2 class="text-xl font-semibold text-dark-900">Nouvel utilisateur</h2>
-      <button (click)="closeModals()" class="btn-icon">
-        <lucide-angular [img]="XIcon" class="w-5 h-5"></lucide-angular>
-      </button>
-    </div>
-
-    <form (ngSubmit)="createUser()" class="p-6 space-y-4">
-      <div>
-        <label class="input-label">Prénom</label>
-        <input
-          type="text"
-          [(ngModel)]="formData().firstName"
-          name="firstName"
-          required
-          class="input-field"
-          placeholder="Jean"
-        />
+@if (showCreateModal()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between p-6 border-b border-gray-200">
+        <h2 class="text-xl font-semibold text-dark-900">Créer un utilisateur</h2>
+        <button (click)="closeModals()" class="btn-icon">
+          <lucide-angular [img]="XIcon" class="w-5 h-5"></lucide-angular>
+        </button>
       </div>
 
-      <div>
-        <label class="input-label">Nom</label>
-        <input
-          type="text"
-          [(ngModel)]="formData().lastName"
-          name="lastName"
-          required
-          class="input-field"
-          placeholder="Dupont"
-        />
+      <!-- Modal Body -->
+      <div class="p-6">
+        @if (errorMessage()) {
+          <div class="mb-4 bg-error bg-opacity-10 border border-error text-error px-4 py-3 rounded text-sm">
+            {{ errorMessage() }}
+          </div>
+        }
+
+        @if (isLoadingModal()) {
+          <div class="flex items-center justify-center py-12">
+            <div class="text-center">
+              <div class="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p class="text-sm text-dark-600">Création en cours...</p>
+            </div>
+          </div>
+        } @else {
+          <form class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="input-label">Prénom</label>
+                <input
+                  type="text"
+                  [(ngModel)]="formData().firstName"
+                  name="firstName"
+                  class="input-field"
+                  placeholder="Jean"
+                  required
+                />
+              </div>
+              <div>
+                <label class="input-label">Nom</label>
+                <input
+                  type="text"
+                  [(ngModel)]="formData().lastName"
+                  name="lastName"
+                  class="input-field"
+                  placeholder="Dupont"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label class="input-label">Email</label>
+              <input
+                type="email"
+                [(ngModel)]="formData().email"
+                name="email"
+                class="input-field"
+                placeholder="jean.dupont@example.com"
+                required
+              />
+            </div>
+
+            <div>
+              <label class="input-label">Téléphone</label>
+              <input
+                type="tel"
+                [(ngModel)]="formData().phoneNumber"
+                name="phoneNumber"
+                class="input-field"
+                placeholder="+33612345678"
+              />
+            </div>
+
+            <div>
+              <label class="input-label">Rôle</label>
+              <select [(ngModel)]="formData().role" name="role" class="input-field" required>
+                @for (role of getAvailableRoles(); track role.value) {
+                  <option [value]="role.value">{{ role.label }}</option>
+                }
+              </select>
+            </div>
+
+            <div>
+              <label class="input-label">Poste</label>
+              <input
+                type="text"
+                [(ngModel)]="formData().position"
+                name="position"
+                class="input-field"
+                placeholder="Développeur"
+              />
+            </div>
+
+            <div>
+              <label class="input-label">Département</label>
+              <input
+                type="text"
+                [(ngModel)]="formData().department"
+                name="department"
+                class="input-field"
+                placeholder="IT"
+              />
+            </div>
+
+            <div>
+              <label class="input-label">Date d'embauche</label>
+              <input
+                type="date"
+                [(ngModel)]="formData().hireDate"
+                name="hireDate"
+                class="input-field"
+              />
+            </div>
+          </form>
+        }
       </div>
 
-      <div>
-        <label class="input-label">Email</label>
-        <input
-          type="email"
-          [(ngModel)]="formData().email"
-          name="email"
-          required
-          class="input-field"
-          placeholder="jean.dupont@example.com"
-        />
-      </div>
-
-      <div>
-        <label class="input-label">Téléphone</label>
-        <input
-          type="tel"
-          [(ngModel)]="formData().phoneNumber"
-          name="phoneNumber"
-          required
-          class="input-field"
-          placeholder="+33612345678"
-        />
-      </div>
-
-      <div>
-        <label class="input-label">Rôle</label>
-        <select [(ngModel)]="formData().role" name="role" class="input-field">
-          <option value="employee">Employé</option>
-          <option value="manager">Manager</option>
-        </select>
-      </div>
-
-      <div class="flex gap-3 pt-4">
-        <button type="button" (click)="closeModals()" class="btn-secondary flex-1">
+      <!-- Modal Footer -->
+      <div class="flex gap-3 p-6 border-t border-gray-200">
+        <button (click)="closeModals()" class="btn-secondary flex-1" [disabled]="isLoadingModal()">
           Annuler
         </button>
-        <button type="submit" class="btn-primary flex-1">
-          Créer
+        <button (click)="createUser()" class="btn-primary flex-1" [disabled]="isLoadingModal()">
+          @if (isLoadingModal()) {
+            <span>Création...</span>
+          } @else {
+            <span>Créer</span>
+          }
         </button>
       </div>
-    </form>
+    </div>
   </div>
-</div>
+}
 
 <!-- Edit Modal -->
-<div
-  *ngIf="showEditModal()"
-  class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-  (click)="closeModals()"
->
-  <div
-    class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4"
-    (click)="$event.stopPropagation()"
-  >
-    <div class="flex items-center justify-between p-6 border-b border-gray-200">
-      <h2 class="text-xl font-semibold text-dark-900">Modifier l'utilisateur</h2>
-      <button (click)="closeModals()" class="btn-icon">
-        <lucide-angular [img]="XIcon" class="w-5 h-5"></lucide-angular>
-      </button>
-    </div>
-
-    <form (ngSubmit)="updateUser()" class="p-6 space-y-4">
-      <div>
-        <label class="input-label">Prénom</label>
-        <input
-          type="text"
-          [(ngModel)]="formData().firstName"
-          name="firstName"
-          required
-          class="input-field"
-        />
+@if (showEditModal()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between p-6 border-b border-gray-200">
+        <h2 class="text-xl font-semibold text-dark-900">Modifier un utilisateur</h2>
+        <button (click)="closeModals()" class="btn-icon">
+          <lucide-angular [img]="XIcon" class="w-5 h-5"></lucide-angular>
+        </button>
       </div>
 
-      <div>
-        <label class="input-label">Nom</label>
-        <input
-          type="text"
-          [(ngModel)]="formData().lastName"
-          name="lastName"
-          required
-          class="input-field"
-        />
+      <!-- Modal Body -->
+      <div class="p-6">
+        @if (errorMessage()) {
+          <div class="mb-4 bg-error bg-opacity-10 border border-error text-error px-4 py-3 rounded text-sm">
+            {{ errorMessage() }}
+          </div>
+        }
+
+        @if (isLoadingModal()) {
+          <div class="flex items-center justify-center py-12">
+            <div class="text-center">
+              <div class="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p class="text-sm text-dark-600">Mise à jour en cours...</p>
+            </div>
+          </div>
+        } @else {
+          <form class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="input-label">Prénom</label>
+                <input
+                  type="text"
+                  [(ngModel)]="formData().firstName"
+                  name="firstName"
+                  class="input-field"
+                  required
+                />
+              </div>
+              <div>
+                <label class="input-label">Nom</label>
+                <input
+                  type="text"
+                  [(ngModel)]="formData().lastName"
+                  name="lastName"
+                  class="input-field"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label class="input-label">Email</label>
+              <input
+                type="email"
+                [(ngModel)]="formData().email"
+                name="email"
+                class="input-field"
+                required
+              />
+            </div>
+
+            <div>
+              <label class="input-label">Téléphone</label>
+              <input
+                type="tel"
+                [(ngModel)]="formData().phoneNumber"
+                name="phoneNumber"
+                class="input-field"
+              />
+            </div>
+
+            <div>
+              <label class="input-label">Rôle</label>
+              <select [(ngModel)]="formData().role" name="role" class="input-field" required>
+                @for (role of getAvailableRoles(); track role.value) {
+                  <option [value]="role.value">{{ role.label }}</option>
+                }
+              </select>
+            </div>
+
+            <div>
+              <label class="input-label">Poste</label>
+              <input
+                type="text"
+                [(ngModel)]="formData().position"
+                name="position"
+                class="input-field"
+              />
+            </div>
+
+            <div>
+              <label class="input-label">Département</label>
+              <input
+                type="text"
+                [(ngModel)]="formData().department"
+                name="department"
+                class="input-field"
+              />
+            </div>
+
+            <div>
+              <label class="input-label">Date d'embauche</label>
+              <input
+                type="date"
+                [(ngModel)]="formData().hireDate"
+                name="hireDate"
+                class="input-field"
+              />
+            </div>
+          </form>
+        }
       </div>
 
-      <div>
-        <label class="input-label">Email</label>
-        <input
-          type="email"
-          [(ngModel)]="formData().email"
-          name="email"
-          required
-          class="input-field"
-        />
-      </div>
-
-      <div>
-        <label class="input-label">Téléphone</label>
-        <input
-          type="tel"
-          [(ngModel)]="formData().phoneNumber"
-          name="phoneNumber"
-          required
-          class="input-field"
-        />
-      </div>
-
-      <div>
-        <label class="input-label">Rôle</label>
-        <select [(ngModel)]="formData().role" name="role" class="input-field">
-          <option value="employee">Employé</option>
-          <option value="manager">Manager</option>
-        </select>
-      </div>
-
-      <div class="flex gap-3 pt-4">
-        <button type="button" (click)="closeModals()" class="btn-secondary flex-1">
+      <!-- Modal Footer -->
+      <div class="flex gap-3 p-6 border-t border-gray-200">
+        <button (click)="closeModals()" class="btn-secondary flex-1" [disabled]="isLoadingModal()">
           Annuler
         </button>
-        <button type="submit" class="btn-primary flex-1">
-          Enregistrer
+        <button (click)="updateUser()" class="btn-primary flex-1" [disabled]="isLoadingModal()">
+          @if (isLoadingModal()) {
+            <span>Mise à jour...</span>
+          } @else {
+            <span>Mettre à jour</span>
+          }
         </button>
       </div>
-    </form>
+    </div>
   </div>
-</div>
+}
 
 <!-- Delete Modal -->
-<div
-  *ngIf="showDeleteModal()"
-  class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-  (click)="closeModals()"
->
-  <div
-    class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4"
-    (click)="$event.stopPropagation()"
-  >
-    <div class="p-6">
-      <h2 class="text-xl font-semibold text-dark-900 mb-4">Confirmer la suppression</h2>
-      <p class="text-dark-600 mb-6">
-        Êtes-vous sûr de vouloir supprimer l'utilisateur
-        <span class="font-semibold">{{ selectedUser() ? getUserFullName(selectedUser()!) : '' }}</span> ?
-        Cette action est irréversible.
-      </p>
+@if (showDeleteModal()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between p-6 border-b border-gray-200">
+        <h2 class="text-xl font-semibold text-dark-900">Confirmer la suppression</h2>
+        <button (click)="closeModals()" class="btn-icon">
+          <lucide-angular [img]="XIcon" class="w-5 h-5"></lucide-angular>
+        </button>
+      </div>
 
-      <div class="flex gap-3">
-        <button (click)="closeModals()" class="btn-secondary flex-1">
+      <!-- Modal Body -->
+      <div class="p-6">
+        @if (errorMessage()) {
+          <div class="mb-4 bg-error bg-opacity-10 border border-error text-error px-4 py-3 rounded text-sm">
+            {{ errorMessage() }}
+          </div>
+        }
+
+        @if (isLoadingModal()) {
+          <div class="flex items-center justify-center py-12">
+            <div class="text-center">
+              <div class="w-12 h-12 border-4 border-error border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p class="text-sm text-dark-600">Suppression en cours...</p>
+            </div>
+          </div>
+        } @else {
+          <p class="text-sm text-dark-700">
+            Êtes-vous sûr de vouloir supprimer l'utilisateur
+            <strong class="text-dark-900">{{ getUserFullName(selectedUser()!) }}</strong> ?
+            Cette action est irréversible.
+          </p>
+        }
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="flex gap-3 p-6 border-t border-gray-200">
+        <button (click)="closeModals()" class="btn-secondary flex-1" [disabled]="isLoadingModal()">
           Annuler
         </button>
-        <button (click)="deleteUser()" class="btn-primary bg-error hover:bg-red-700 flex-1">
-          Supprimer
+        <button
+          (click)="deleteUser()"
+          class="bg-error text-white hover:bg-red-600 shadow-sm hover:shadow px-4 py-2 rounded text-sm font-medium transition-all duration-200 flex-1 inline-flex items-center justify-center"
+          [disabled]="isLoadingModal()"
+        >
+          @if (isLoadingModal()) {
+            <span>Suppression...</span>
+          } @else {
+            <span>Supprimer</span>
+          }
         </button>
       </div>
     </div>
   </div>
-</div>
+}
 
-<!-- Details Modal with Clock History -->
-<div
-  *ngIf="showDetailsModal()"
-  class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-  (click)="closeModals()"
->
-  <div
-    class="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
-    (click)="$event.stopPropagation()"
-  >
-    <div class="flex items-center justify-between p-6 border-b border-gray-200">
-      <h2 class="text-xl font-semibold text-dark-900">
-        Détails de {{ selectedUser() ? getUserFullName(selectedUser()!) : '' }}
-      </h2>
-      <button (click)="closeModals()" class="btn-icon">
-        <lucide-angular [img]="XIcon" class="w-5 h-5"></lucide-angular>
-      </button>
-    </div>
-
-    <div class="flex-1 overflow-y-auto p-6 space-y-6">
-      <!-- User Info -->
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <p class="text-xs text-dark-600 font-medium mb-1">Email</p>
-          <p class="text-sm text-dark-900">{{ selectedUser()?.email }}</p>
-        </div>
-        <div>
-          <p class="text-xs text-dark-600 font-medium mb-1">Téléphone</p>
-          <p class="text-sm text-dark-900">{{ selectedUser()?.phoneNumber }}</p>
-        </div>
-        <div>
-          <p class="text-xs text-dark-600 font-medium mb-1">Rôle</p>
-          <span [class]="'badge ' + getRoleBadgeClass(selectedUser()?.role || 'employee')">
-            {{ selectedUser()?.role === 'manager' ? 'Manager' : 'Employé' }}
-          </span>
-        </div>
+<!-- Details Modal -->
+@if (showDetailsModal() && selectedUser()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between p-6 border-b border-gray-200">
+        <h2 class="text-xl font-semibold text-dark-900">Détails de l'utilisateur</h2>
+        <button (click)="closeModals()" class="btn-icon">
+          <lucide-angular [img]="XIcon" class="w-5 h-5"></lucide-angular>
+        </button>
       </div>
 
-      <!-- Clock History -->
-      <div>
-        <h3 class="text-lg font-semibold text-dark-900 mb-4 flex items-center gap-2">
-          <lucide-angular [img]="ClockIcon" class="w-5 h-5"></lucide-angular>
-          Historique des pointages
-        </h3>
+      <!-- Modal Body -->
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="text-xs font-medium text-dark-600">Nom complet</label>
+          <p class="text-sm text-dark-900 mt-1">{{ getUserFullName(selectedUser()!) }}</p>
+        </div>
 
-        <div class="border border-gray-200 rounded-lg overflow-hidden">
-          <div class="overflow-x-auto">
-            <table class="w-full">
-              <thead class="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th class="px-4 py-3 text-left text-xs font-semibold text-dark-600 uppercase whitespace-nowrap">
-                    Date
-                  </th>
-                  <th class="px-4 py-3 text-left text-xs font-semibold text-dark-600 uppercase whitespace-nowrap">
-                    Arrivée
-                  </th>
-                  <th class="px-4 py-3 text-left text-xs font-semibold text-dark-600 uppercase whitespace-nowrap">
-                    Départ
-                  </th>
-                  <th class="px-4 py-3 text-left text-xs font-semibold text-dark-600 uppercase whitespace-nowrap">
-                    Pause Début
-                  </th>
-                  <th class="px-4 py-3 text-left text-xs font-semibold text-dark-600 uppercase whitespace-nowrap">
-                    Pause Fin
-                  </th>
-                  <th class="px-4 py-3 text-left text-xs font-semibold text-dark-600 uppercase whitespace-nowrap">
-                    Total
-                  </th>
-                  <th class="px-4 py-3 text-left text-xs font-semibold text-dark-600 uppercase whitespace-nowrap">
-                    Statut
-                  </th>
-                  <th class="px-4 py-3 text-left text-xs font-semibold text-dark-600 uppercase whitespace-nowrap">
-                    Évaluation
-                  </th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-200">
-                <tr *ngFor="let record of clockRecords()" class="hover:bg-gray-50">
-                  <td class="px-4 py-3 text-sm text-dark-900 whitespace-nowrap">
-                    {{ formatDate(record.date) }}
-                  </td>
-                  <td class="px-4 py-3 text-sm text-dark-600 whitespace-nowrap">
-                    {{ record.clockIn }}
-                  </td>
-                  <td class="px-4 py-3 text-sm text-dark-600 whitespace-nowrap">
-                    {{ record.clockOut || '-' }}
-                  </td>
-                  <td class="px-4 py-3 text-sm text-dark-600 whitespace-nowrap">
-                    {{ record.breakStart || '-' }}
-                  </td>
-                  <td class="px-4 py-3 text-sm text-dark-600 whitespace-nowrap">
-                    {{ record.breakEnd || '-' }}
-                  </td>
-                  <td class="px-4 py-3 text-sm font-medium text-dark-900 whitespace-nowrap">
-                    {{ record.totalHours ? record.totalHours + 'h' : '-' }}
-                  </td>
-                  <td class="px-4 py-3 whitespace-nowrap">
-                    <span [class]="'badge ' + getStatusBadgeClass(record.status)">
-                      {{ record.status === 'completed' ? 'Terminé' : 'En cours' }}
-                    </span>
-                  </td>
-                  <td class="px-4 py-3 whitespace-nowrap">
-                    <span [class]="'badge ' + getEvaluationBadgeClass(record.evaluation)">
-                      {{ getEvaluationLabel(record.evaluation) }}
-                    </span>
-                  </td>
-                </tr>
-                <tr *ngFor="let record of clockRecords()" class="hover:bg-gray-50">
-                  <td class="px-4 py-3 text-sm text-dark-900 whitespace-nowrap">
-                    {{ formatDate(record.date) }}
-                  </td>
-                  <td class="px-4 py-3 text-sm text-dark-600 whitespace-nowrap">
-                    {{ record.clockIn }}
-                  </td>
-                  <td class="px-4 py-3 text-sm text-dark-600 whitespace-nowrap">
-                    {{ record.clockOut || '-' }}
-                  </td>
-                  <td class="px-4 py-3 text-sm text-dark-600 whitespace-nowrap">
-                    {{ record.breakStart || '-' }}
-                  </td>
-                  <td class="px-4 py-3 text-sm text-dark-600 whitespace-nowrap">
-                    {{ record.breakEnd || '-' }}
-                  </td>
-                  <td class="px-4 py-3 text-sm font-medium text-dark-900 whitespace-nowrap">
-                    {{ record.totalHours ? record.totalHours + 'h' : '-' }}
-                  </td>
-                  <td class="px-4 py-3 whitespace-nowrap">
-                    <span [class]="'badge ' + getStatusBadgeClass(record.status)">
-                      {{ record.status === 'completed' ? 'Terminé' : 'En cours' }}
-                    </span>
-                  </td>
-                  <td class="px-4 py-3 whitespace-nowrap">
-                    <span [class]="'badge ' + getEvaluationBadgeClass(record.evaluation)">
-                      {{ getEvaluationLabel(record.evaluation) }}
-                    </span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+        <div>
+          <label class="text-xs font-medium text-dark-600">Email</label>
+          <p class="text-sm text-dark-900 mt-1">{{ selectedUser()!.email }}</p>
+        </div>
+
+        <div>
+          <label class="text-xs font-medium text-dark-600">Téléphone</label>
+          <p class="text-sm text-dark-900 mt-1">{{ selectedUser()!.phoneNumber || 'N/A' }}</p>
+        </div>
+
+        <div>
+          <label class="text-xs font-medium text-dark-600">Rôle</label>
+          <div class="mt-1">
+            <span [class]="'badge ' + getRoleBadgeClass(selectedUser()!.role)">
+              {{ getRoleLabel(selectedUser()!.role) }}
+            </span>
+          </div>
+        </div>
+
+        <div>
+          <label class="text-xs font-medium text-dark-600">Poste</label>
+          <p class="text-sm text-dark-900 mt-1">{{ selectedUser()!.position || 'N/A' }}</p>
+        </div>
+
+        <div>
+          <label class="text-xs font-medium text-dark-600">Département</label>
+          <p class="text-sm text-dark-900 mt-1">{{ selectedUser()!.department || 'N/A' }}</p>
+        </div>
+
+        <div>
+          <label class="text-xs font-medium text-dark-600">Date d'embauche</label>
+          <p class="text-sm text-dark-900 mt-1">{{ formatDate(selectedUser()!.hireDate) }}</p>
+        </div>
+
+        <div>
+          <label class="text-xs font-medium text-dark-600">Statut</label>
+          <div class="mt-1">
+            @if (selectedUser()!.isActive) {
+              <span class="badge badge-success">Actif</span>
+            } @else {
+              <span class="badge badge-secondary">Inactif</span>
+            }
+          </div>
+        </div>
+
+        <div>
+          <label class="text-xs font-medium text-dark-600">Compte vérifié</label>
+          <div class="mt-1">
+            @if (selectedUser()!.isVerified) {
+              <span class="badge badge-success">Vérifié</span>
+            } @else {
+              <span class="badge badge-warning">Non vérifié</span>
+            }
           </div>
         </div>
       </div>
+
+      <!-- Modal Footer -->
+      <div class="p-6 border-t border-gray-200">
+        <button (click)="closeModals()" class="btn-primary w-full">
+          Fermer
+        </button>
+      </div>
     </div>
   </div>
-</div>
+}

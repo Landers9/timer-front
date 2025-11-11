@@ -12,26 +12,36 @@ import {
   X,
   Clock,
 } from 'lucide-angular';
+import {
+  UserService,
+  ApiUser,
+  CreateUserRequest,
+  UpdateUserRequest,
+} from '../../services/user.service';
 
 interface User {
-  id: number;
+  id: string;
   firstName: string;
   lastName: string;
   email: string;
   phoneNumber: string;
-  role: 'employee' | 'manager';
+  role: 'EMPLOYEE' | 'MANAGER' | 'ADMIN';
+  position: string;
+  department: string;
+  hireDate: string | null;
+  isActive: boolean;
+  isVerified: boolean;
 }
 
-interface ClockRecord {
-  id: number;
-  date: Date;
-  clockIn: string;
-  clockOut: string | null;
-  breakStart: string | null;
-  breakEnd: string | null;
-  totalHours: number | null;
-  status: 'completed' | 'in-progress';
-  evaluation: 'on-time' | 'late' | 'early-leave' | 'perfect';
+interface FormData {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phoneNumber?: string;
+  role?: 'EMPLOYEE' | 'MANAGER' | 'ADMIN';
+  position?: string;
+  department?: string;
+  hireDate?: string;
 }
 
 @Component({
@@ -52,129 +62,36 @@ export class UsersComponent implements OnInit {
   readonly ClockIcon = Clock;
 
   // Data
-  users = signal<User[]>([
-    {
-      id: 1,
-      firstName: 'Jean',
-      lastName: 'Dupont',
-      email: 'jean.dupont@example.com',
-      phoneNumber: '+33612345678',
-      role: 'employee',
-    },
-    {
-      id: 2,
-      firstName: 'Marie',
-      lastName: 'Martin',
-      email: 'marie.martin@example.com',
-      phoneNumber: '+33612345679',
-      role: 'manager',
-    },
-    {
-      id: 3,
-      firstName: 'Pierre',
-      lastName: 'Bernard',
-      email: 'pierre.bernard@example.com',
-      phoneNumber: '+33612345680',
-      role: 'employee',
-    },
-    {
-      id: 4,
-      firstName: 'Sophie',
-      lastName: 'Dubois',
-      email: 'sophie.dubois@example.com',
-      phoneNumber: '+33612345681',
-      role: 'employee',
-    },
-    {
-      id: 5,
-      firstName: 'Luc',
-      lastName: 'Moreau',
-      email: 'luc.moreau@example.com',
-      phoneNumber: '+33612345682',
-      role: 'manager',
-    },
-  ]);
+  users = signal<User[]>([]);
+  isLoadingList = signal(false); // Loading pour la liste
+  isLoadingModal = signal(false); // Loading pour les actions dans les modals
+  errorMessage = signal<string | null>(null);
+  currentUserRole = signal<'EMPLOYEE' | 'MANAGER' | 'ADMIN'>('EMPLOYEE');
 
-  clockRecords = signal<ClockRecord[]>([
-    {
-      id: 1,
-      date: new Date('2025-10-08'),
-      clockIn: '08:30',
-      clockOut: '17:30',
-      breakStart: '12:00',
-      breakEnd: '13:00',
-      totalHours: 8,
-      status: 'completed',
-      evaluation: 'perfect',
-    },
-    {
-      id: 2,
-      date: new Date('2025-10-09'),
-      clockIn: '09:15',
-      clockOut: '17:15',
-      breakStart: '12:30',
-      breakEnd: '13:30',
-      totalHours: 7,
-      status: 'completed',
-      evaluation: 'late',
-    },
-    {
-      id: 3,
-      date: new Date('2025-10-10'),
-      clockIn: '08:30',
-      clockOut: null,
-      breakStart: '12:00',
-      breakEnd: '13:00',
-      totalHours: null,
-      status: 'in-progress',
-      evaluation: 'on-time',
-    },
-    {
-      id: 4,
-      date: new Date('2025-10-07'),
-      clockIn: '08:00',
-      clockOut: '16:45',
-      breakStart: '12:00',
-      breakEnd: '13:00',
-      totalHours: 7.75,
-      status: 'completed',
-      evaluation: 'early-leave',
-    },
-    {
-      id: 5,
-      date: new Date('2025-10-06'),
-      clockIn: '08:30',
-      clockOut: '17:30',
-      breakStart: '12:15',
-      breakEnd: '13:00',
-      totalHours: 8,
-      status: 'completed',
-      evaluation: 'perfect',
-    },
-  ]);
-
-  // Search & filters
-  searchQuery = signal('');
-  roleFilter = signal<'all' | 'employee' | 'manager'>('all');
-
-  // Modals
+  // UI State
   showCreateModal = signal(false);
   showEditModal = signal(false);
   showDeleteModal = signal(false);
   showDetailsModal = signal(false);
+  selectedUser = signal<User | null>(null);
 
-  // Form data
-  formData = signal<Partial<User>>({
+  // Filters
+  searchQuery = signal('');
+  roleFilter = signal<'all' | 'EMPLOYEE' | 'MANAGER' | 'ADMIN'>('all');
+
+  // Form Data
+  formData = signal<FormData>({
     firstName: '',
     lastName: '',
     email: '',
     phoneNumber: '',
-    role: 'employee',
+    role: 'EMPLOYEE',
+    position: '',
+    department: '',
+    hireDate: '',
   });
 
-  selectedUser = signal<User | null>(null);
-
-  // Filtered users
+  // Computed
   filteredUsers = computed(() => {
     let filtered = this.users();
 
@@ -198,8 +115,128 @@ export class UsersComponent implements OnInit {
     return filtered;
   });
 
+  constructor(private userService: UserService) {}
+
   ngOnInit(): void {
-    // Load users from API
+    this.loadCurrentUserRole();
+    this.loadUsers();
+  }
+
+  /**
+   * Charger le rôle de l'utilisateur connecté
+   */
+  loadCurrentUserRole(): void {
+    this.userService.getCurrentUser().subscribe({
+      next: (user) => {
+        this.currentUserRole.set(user.role);
+      },
+      error: (error) => {
+        console.error('Erreur lors du chargement du rôle:', error);
+        // Par défaut, on met EMPLOYEE pour restreindre les permissions
+        this.currentUserRole.set('EMPLOYEE');
+      },
+    });
+  }
+
+  /**
+   * Obtenir les rôles autorisés selon le rôle de l'utilisateur connecté
+   */
+  getAvailableRoles(): {
+    value: 'EMPLOYEE' | 'MANAGER' | 'ADMIN';
+    label: string;
+  }[] {
+    const currentRole = this.currentUserRole();
+
+    if (currentRole === 'ADMIN') {
+      // Admin peut créer tous les rôles
+      return [
+        { value: 'EMPLOYEE', label: 'Employé' },
+        { value: 'MANAGER', label: 'Manager' },
+        { value: 'ADMIN', label: 'Administrateur' },
+      ];
+    } else if (currentRole === 'MANAGER') {
+      // Manager ne peut créer que des employés
+      return [{ value: 'EMPLOYEE', label: 'Employé' }];
+    } else {
+      // Employee ne devrait pas pouvoir créer d'utilisateurs
+      return [];
+    }
+  }
+
+  /**
+   * Charger tous les utilisateurs depuis l'API
+   */
+  loadUsers(): void {
+    this.isLoadingList.set(true);
+    this.errorMessage.set(null);
+
+    this.userService.getAllUsers().subscribe({
+      next: (apiUsers) => {
+        const users: User[] = apiUsers.map(this.mapApiUserToUser);
+        this.users.set(users);
+        this.isLoadingList.set(false);
+      },
+      error: (error) => {
+        console.error('Erreur lors du chargement des utilisateurs:', error);
+        this.errorMessage.set(
+          error.message || 'Erreur lors du chargement des utilisateurs'
+        );
+        this.isLoadingList.set(false);
+      },
+    });
+  }
+
+  /**
+   * Mapper un ApiUser vers User pour l'affichage
+   */
+  private mapApiUserToUser(apiUser: ApiUser): User {
+    return {
+      id: apiUser.id,
+      firstName: apiUser.first_name,
+      lastName: apiUser.last_name,
+      email: apiUser.email,
+      phoneNumber: apiUser.phone_number || '',
+      role: apiUser.role,
+      position: apiUser.position || '',
+      department: apiUser.department || '',
+      hireDate: apiUser.hire_date,
+      isActive: apiUser.is_active,
+      isVerified: apiUser.is_verified,
+    };
+  }
+
+  /**
+   * Mapper FormData vers CreateUserRequest
+   */
+  private mapFormDataToCreateRequest(formData: FormData): CreateUserRequest {
+    return {
+      email: formData.email!,
+      first_name: formData.firstName!,
+      last_name: formData.lastName!,
+      phone_number: formData.phoneNumber || undefined,
+      role: formData.role!,
+      is_active: true,
+      is_verified: false,
+      position: formData.position || undefined,
+      department: formData.department || undefined,
+      hire_date: formData.hireDate || undefined,
+    };
+  }
+
+  /**
+   * Mapper FormData vers UpdateUserRequest
+   */
+  private mapFormDataToUpdateRequest(formData: FormData): UpdateUserRequest {
+    return {
+      email: formData.email,
+      first_name: formData.firstName,
+      last_name: formData.lastName,
+      phone_number: formData.phoneNumber,
+      role: formData.role,
+      position: formData.position,
+      department: formData.department,
+      hire_date: formData.hireDate,
+    };
   }
 
   // CRUD Operations
@@ -209,14 +246,26 @@ export class UsersComponent implements OnInit {
       lastName: '',
       email: '',
       phoneNumber: '',
-      role: 'employee',
+      role: 'EMPLOYEE',
+      position: '',
+      department: '',
+      hireDate: '',
     });
     this.showCreateModal.set(true);
   }
 
   openEditModal(user: User): void {
     this.selectedUser.set(user);
-    this.formData.set({ ...user });
+    this.formData.set({
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+      role: user.role,
+      position: user.position,
+      department: user.department,
+      hireDate: user.hireDate || '',
+    });
     this.showEditModal.set(true);
   }
 
@@ -236,40 +285,83 @@ export class UsersComponent implements OnInit {
     this.showDeleteModal.set(false);
     this.showDetailsModal.set(false);
     this.selectedUser.set(null);
+    this.errorMessage.set(null);
   }
 
   createUser(): void {
-    const newUser: User = {
-      id: Math.max(...this.users().map((u) => u.id)) + 1,
-      firstName: this.formData().firstName!,
-      lastName: this.formData().lastName!,
-      email: this.formData().email!,
-      phoneNumber: this.formData().phoneNumber!,
-      role: this.formData().role!,
-    };
+    this.isLoadingModal.set(true);
+    this.errorMessage.set(null);
 
-    this.users.update((users) => [...users, newUser]);
-    this.closeModals();
+    const createRequest = this.mapFormDataToCreateRequest(this.formData());
+
+    this.userService.createUser(createRequest).subscribe({
+      next: (apiUser) => {
+        const newUser = this.mapApiUserToUser(apiUser);
+        this.users.update((users) => [...users, newUser]);
+        this.closeModals();
+        this.isLoadingModal.set(false);
+      },
+      error: (error) => {
+        console.error("Erreur lors de la création de l'utilisateur:", error);
+        this.errorMessage.set(
+          error.message || "Erreur lors de la création de l'utilisateur"
+        );
+        this.isLoadingModal.set(false);
+      },
+    });
   }
 
   updateUser(): void {
     const userId = this.selectedUser()?.id;
     if (!userId) return;
 
-    this.users.update((users) =>
-      users.map((user) =>
-        user.id === userId ? ({ ...user, ...this.formData() } as User) : user
-      )
-    );
-    this.closeModals();
+    this.isLoadingModal.set(true);
+    this.errorMessage.set(null);
+
+    const updateRequest = this.mapFormDataToUpdateRequest(this.formData());
+
+    this.userService.updateUser(userId, updateRequest).subscribe({
+      next: (apiUser) => {
+        const updatedUser = this.mapApiUserToUser(apiUser);
+        this.users.update((users) =>
+          users.map((user) => (user.id === userId ? updatedUser : user))
+        );
+        this.closeModals();
+        this.isLoadingModal.set(false);
+      },
+      error: (error) => {
+        console.error("Erreur lors de la mise à jour de l'utilisateur:", error);
+        this.errorMessage.set(
+          error.message || "Erreur lors de la mise à jour de l'utilisateur"
+        );
+        this.isLoadingModal.set(false);
+      },
+    });
   }
 
   deleteUser(): void {
     const userId = this.selectedUser()?.id;
     if (!userId) return;
 
-    this.users.update((users) => users.filter((user) => user.id !== userId));
-    this.closeModals();
+    this.isLoadingModal.set(true);
+    this.errorMessage.set(null);
+
+    this.userService.deleteUser(userId).subscribe({
+      next: () => {
+        this.users.update((users) =>
+          users.filter((user) => user.id !== userId)
+        );
+        this.closeModals();
+        this.isLoadingModal.set(false);
+      },
+      error: (error) => {
+        console.error("Erreur lors de la suppression de l'utilisateur:", error);
+        this.errorMessage.set(
+          error.message || "Erreur lors de la suppression de l'utilisateur"
+        );
+        this.isLoadingModal.set(false);
+      },
+    });
   }
 
   // Helpers
@@ -278,49 +370,38 @@ export class UsersComponent implements OnInit {
   }
 
   getRoleBadgeClass(role: string): string {
-    return role === 'manager' ? 'badge-primary' : 'badge-secondary';
-  }
-
-  getStatusBadgeClass(status: string): string {
-    return status === 'completed' ? 'badge-success' : 'badge-warning';
-  }
-
-  getEvaluationBadgeClass(evaluation: string): string {
-    switch (evaluation) {
-      case 'perfect':
-        return 'badge-success';
-      case 'on-time':
+    switch (role) {
+      case 'ADMIN':
+        return 'badge-primary';
+      case 'MANAGER':
         return 'badge-info';
-      case 'late':
-        return 'badge-warning';
-      case 'early-leave':
-        return 'badge-error';
+      case 'EMPLOYEE':
+        return 'badge-secondary';
       default:
         return 'badge-secondary';
     }
   }
 
-  getEvaluationLabel(evaluation: string): string {
-    switch (evaluation) {
-      case 'perfect':
-        return 'Parfait';
-      case 'on-time':
-        return "À l'heure";
-      case 'late':
-        return 'Retard';
-      case 'early-leave':
-        return 'Départ anticipé';
+  getRoleLabel(role: string): string {
+    switch (role) {
+      case 'ADMIN':
+        return 'Administrateur';
+      case 'MANAGER':
+        return 'Manager';
+      case 'EMPLOYEE':
+        return 'Employé';
       default:
-        return 'N/A';
+        return role;
     }
   }
 
-  formatDate(date: Date): string {
-    return new Intl.DateTimeFormat('fr-FR', {
-      weekday: 'short',
+  formatDate(dateString: string | null): string {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('fr-FR', {
       year: 'numeric',
-      month: 'short',
+      month: 'long',
       day: 'numeric',
-    }).format(date);
+    });
   }
 }
