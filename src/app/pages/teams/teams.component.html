@@ -28,8 +28,16 @@
     </div>
   </div>
 
+  <!-- Loading State -->
+  <div *ngIf="isLoading()" class="bg-white rounded-lg border border-gray-200 p-12">
+    <div class="flex flex-col items-center justify-center">
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500"></div>
+      <p class="text-sm text-dark-600 mt-4">Chargement des équipes...</p>
+    </div>
+  </div>
+
   <!-- Teams Table -->
-  <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+  <div *ngIf="!isLoading()" class="bg-white rounded-lg border border-gray-200 overflow-hidden">
     <div class="overflow-x-auto">
       <table class="w-full">
         <thead class="bg-gray-50 border-b border-gray-200">
@@ -53,41 +61,39 @@
             *ngFor="let team of filteredTeams()"
             class="hover:bg-gray-50 transition-colors"
           >
-            <td class="px-6 py-4 whitespace-nowrap">
-              <div class="text-sm font-medium text-dark-900">
-                {{ team.name }}
-              </div>
+            <td class="px-6 py-4">
+              <div class="text-sm font-medium text-dark-900">{{ team.name }}</div>
             </td>
             <td class="px-6 py-4">
               <div class="text-sm text-dark-600">{{ team.description }}</div>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-center">
-              <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary-100 text-primary-700 text-sm font-semibold">
+            <td class="px-6 py-4 text-center">
+              <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary-100 text-dark-900 text-xs font-semibold">
                 {{ getMemberCount(team) }}
               </span>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+            <td class="px-6 py-4">
               <div class="flex items-center justify-end gap-2">
                 <button
                   (click)="openDetailsModal(team)"
                   class="btn-icon"
                   title="Voir les détails"
                 >
-                  <lucide-angular [img]="EyeIcon" class="w-4 h-4"></lucide-angular>
+                  <lucide-angular [img]="EyeIcon" class="w-5 h-5"></lucide-angular>
                 </button>
                 <button
                   (click)="openEditModal(team)"
                   class="btn-icon"
                   title="Modifier"
                 >
-                  <lucide-angular [img]="EditIcon" class="w-4 h-4"></lucide-angular>
+                  <lucide-angular [img]="EditIcon" class="w-5 h-5"></lucide-angular>
                 </button>
                 <button
                   (click)="openDeleteModal(team)"
                   class="btn-icon text-error hover:bg-red-50"
                   title="Supprimer"
                 >
-                  <lucide-angular [img]="Trash2Icon" class="w-4 h-4"></lucide-angular>
+                  <lucide-angular [img]="Trash2Icon" class="w-5 h-5"></lucide-angular>
                 </button>
               </div>
             </td>
@@ -96,7 +102,13 @@
           <!-- Empty State -->
           <tr *ngIf="filteredTeams().length === 0">
             <td colspan="4" class="px-6 py-12 text-center">
-              <p class="text-dark-600">Aucune équipe trouvée</p>
+              <div class="flex flex-col items-center justify-center">
+                <lucide-angular
+                  [img]="UsersIcon"
+                  class="w-12 h-12 text-gray-400 mb-3"
+                ></lucide-angular>
+                <p class="text-sm text-dark-600">Aucune équipe trouvée</p>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -105,33 +117,29 @@
   </div>
 </div>
 
-<!-- Create Modal -->
+<!-- ========== CREATE MODAL ========== -->
 <div
   *ngIf="showCreateModal()"
-  class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-  (click)="closeModals()"
+  class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
 >
-  <div
-    class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4"
-    (click)="$event.stopPropagation()"
-  >
-    <div class="flex items-center justify-between p-6 border-b border-gray-200">
-      <h2 class="text-xl font-semibold text-dark-900">Nouvelle équipe</h2>
+  <div class="bg-white rounded-lg max-w-md w-full p-6">
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-xl font-semibold text-dark-900">Créer une équipe</h2>
       <button (click)="closeModals()" class="btn-icon">
         <lucide-angular [img]="XIcon" class="w-5 h-5"></lucide-angular>
       </button>
     </div>
 
-    <form (ngSubmit)="createTeam()" class="p-6 space-y-4">
+    <form (ngSubmit)="createTeam()" class="space-y-4">
       <div>
         <label class="input-label">Nom de l'équipe</label>
         <input
           type="text"
           [(ngModel)]="formData().name"
           name="name"
-          required
           class="input-field"
-          placeholder="Équipe Développement"
+          placeholder="Ex: Équipe Développement"
+          required
         />
       </div>
 
@@ -140,51 +148,53 @@
         <textarea
           [(ngModel)]="formData().description"
           name="description"
-          required
-          rows="3"
           class="input-field"
+          rows="3"
           placeholder="Description de l'équipe..."
+          required
         ></textarea>
       </div>
 
       <div class="flex gap-3 pt-4">
-        <button type="button" (click)="closeModals()" class="btn-secondary flex-1">
+        <button
+          type="button"
+          (click)="closeModals()"
+          class="btn-secondary flex-1"
+          [disabled]="isModalLoading()"
+        >
           Annuler
         </button>
-        <button type="submit" class="btn-primary flex-1">
-          Créer
+        <button type="submit" class="btn-primary flex-1" [disabled]="isModalLoading()">
+          <span *ngIf="!isModalLoading()">Créer</span>
+          <span *ngIf="isModalLoading()">Création...</span>
         </button>
       </div>
     </form>
   </div>
 </div>
 
-<!-- Edit Modal -->
+<!-- ========== EDIT MODAL ========== -->
 <div
   *ngIf="showEditModal()"
-  class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-  (click)="closeModals()"
+  class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
 >
-  <div
-    class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4"
-    (click)="$event.stopPropagation()"
-  >
-    <div class="flex items-center justify-between p-6 border-b border-gray-200">
+  <div class="bg-white rounded-lg max-w-md w-full p-6">
+    <div class="flex items-center justify-between mb-6">
       <h2 class="text-xl font-semibold text-dark-900">Modifier l'équipe</h2>
       <button (click)="closeModals()" class="btn-icon">
         <lucide-angular [img]="XIcon" class="w-5 h-5"></lucide-angular>
       </button>
     </div>
 
-    <form (ngSubmit)="updateTeam()" class="p-6 space-y-4">
+    <form (ngSubmit)="updateTeam()" class="space-y-4">
       <div>
         <label class="input-label">Nom de l'équipe</label>
         <input
           type="text"
           [(ngModel)]="formData().name"
           name="name"
-          required
           class="input-field"
+          required
         />
       </div>
 
@@ -193,74 +203,88 @@
         <textarea
           [(ngModel)]="formData().description"
           name="description"
-          required
-          rows="3"
           class="input-field"
+          rows="3"
+          required
         ></textarea>
       </div>
 
       <div class="flex gap-3 pt-4">
-        <button type="button" (click)="closeModals()" class="btn-secondary flex-1">
+        <button
+          type="button"
+          (click)="closeModals()"
+          class="btn-secondary flex-1"
+          [disabled]="isModalLoading()"
+        >
           Annuler
         </button>
-        <button type="submit" class="btn-primary flex-1">
-          Enregistrer
+        <button type="submit" class="btn-primary flex-1" [disabled]="isModalLoading()">
+          <span *ngIf="!isModalLoading()">Enregistrer</span>
+          <span *ngIf="isModalLoading()">Enregistrement...</span>
         </button>
       </div>
     </form>
   </div>
 </div>
 
-<!-- Delete Modal -->
+<!-- ========== DELETE MODAL ========== -->
 <div
   *ngIf="showDeleteModal()"
-  class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-  (click)="closeModals()"
->
-  <div
-    class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4"
-    (click)="$event.stopPropagation()"
-  >
-    <div class="p-6">
-      <h2 class="text-xl font-semibold text-dark-900 mb-4">Confirmer la suppression</h2>
-      <p class="text-dark-600 mb-6">
-        Êtes-vous sûr de vouloir supprimer l'équipe
-        <span class="font-semibold">{{ selectedTeam()?.name }}</span> ?
-        Cette action est irréversible.
-      </p>
-
-      <div class="flex gap-3">
-        <button (click)="closeModals()" class="btn-secondary flex-1">
-          Annuler
-        </button>
-        <button (click)="deleteTeam()" class="btn-primary bg-error hover:bg-red-700 flex-1">
-          Supprimer
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Details Modal with Members Management -->
-<div
-  *ngIf="showDetailsModal()"
   class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-  (click)="closeModals()"
 >
-  <div
-    class="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
-    (click)="$event.stopPropagation()"
-  >
-    <div class="flex items-center justify-between p-6 border-b border-gray-200">
-      <h2 class="text-xl font-semibold text-dark-900">
-        Détails de {{ selectedTeam()?.name }}
-      </h2>
+  <div class="bg-white rounded-lg max-w-md w-full p-6">
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-xl font-semibold text-dark-900">Supprimer l'équipe</h2>
       <button (click)="closeModals()" class="btn-icon">
         <lucide-angular [img]="XIcon" class="w-5 h-5"></lucide-angular>
       </button>
     </div>
 
-    <div class="flex-1 overflow-y-auto p-6 space-y-6">
+    <p class="text-sm text-dark-700 mb-6">
+      Êtes-vous sûr de vouloir supprimer l'équipe
+      <strong>{{ selectedTeam()?.name }}</strong> ? Cette action est irréversible.
+    </p>
+
+    <div class="flex gap-3">
+      <button
+        type="button"
+        (click)="closeModals()"
+        class="btn-secondary flex-1"
+        [disabled]="isModalLoading()"
+      >
+        Annuler
+      </button>
+      <button
+        type="button"
+        (click)="deleteTeam()"
+        class="bg-error text-white hover:bg-red-700 shadow-sm hover:shadow px-4 py-2 rounded text-sm font-medium transition-all duration-200 inline-flex items-center justify-center gap-2 flex-1"
+        [disabled]="isModalLoading()"
+      >
+        <span *ngIf="!isModalLoading()">Supprimer</span>
+        <span *ngIf="isModalLoading()">Suppression...</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== DETAILS MODAL ========== -->
+<div
+  *ngIf="showDetailsModal()"
+  class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+>
+  <div class="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+    <div class="sticky top-0 bg-white border-b border-gray-200 p-6">
+      <div class="flex items-center justify-between">
+        <h2 class="text-xl font-semibold text-dark-900">
+          {{ selectedTeam()?.name }}
+        </h2>
+        <button (click)="closeModals()" class="btn-icon">
+          <lucide-angular [img]="XIcon" class="w-5 h-5"></lucide-angular>
+        </button>
+      </div>
+    </div>
+
+    <div class="p-6 space-y-6">
       <!-- Team Info -->
       <div>
         <p class="text-xs text-dark-600 font-medium mb-1">Description</p>
@@ -277,14 +301,23 @@
           <button
             (click)="openAddMemberModal()"
             class="btn-primary btn-sm"
-            [disabled]="availableUsers().length === 0"
+            [disabled]="availableUsers().length === 0 || isModalLoading()"
           >
             <lucide-angular [img]="UserPlusIcon" class="w-4 h-4"></lucide-angular>
             <span>Ajouter un membre</span>
           </button>
         </div>
 
-        <div class="border border-gray-200 rounded-lg overflow-hidden">
+        <!-- Loading members -->
+        <div *ngIf="isModalLoading()" class="border border-gray-200 rounded-lg p-8">
+          <div class="flex flex-col items-center justify-center">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
+            <p class="text-sm text-dark-600 mt-3">Chargement des membres...</p>
+          </div>
+        </div>
+
+        <!-- Members table -->
+        <div *ngIf="!isModalLoading()" class="border border-gray-200 rounded-lg overflow-hidden">
           <table class="w-full">
             <thead class="bg-gray-50 border-b border-gray-200">
               <tr>
@@ -312,24 +345,27 @@
                 </td>
                 <td class="px-4 py-3">
                   <span [class]="'badge ' + getRoleBadgeClass(member.role)">
-                    {{ member.role === 'manager' ? 'Manager' : 'Employé' }}
+                    {{ getRoleLabel(member.role) }}
                   </span>
                 </td>
-                <td class="px-4 py-3 text-right">
-                  <button
-                    (click)="removeMemberFromTeam(member.id)"
-                    class="btn-icon text-error hover:bg-red-50"
-                    title="Retirer de l'équipe"
-                  >
-                    <lucide-angular [img]="UserMinusIcon" class="w-4 h-4"></lucide-angular>
-                  </button>
+                <td class="px-4 py-3">
+                  <div class="flex items-center justify-end">
+                    <button
+                      (click)="removeMemberFromTeam(member.id)"
+                      class="btn-icon text-error hover:bg-red-50"
+                      title="Retirer du groupe"
+                      [disabled]="isModalLoading()"
+                    >
+                      <lucide-angular [img]="UserMinusIcon" class="w-4 h-4"></lucide-angular>
+                    </button>
+                  </div>
                 </td>
               </tr>
 
-              <!-- Empty State -->
+              <!-- Empty state -->
               <tr *ngIf="teamMembers().length === 0">
-                <td colspan="4" class="px-4 py-8 text-center text-dark-600">
-                  Aucun membre dans cette équipe
+                <td colspan="4" class="px-4 py-8 text-center">
+                  <p class="text-sm text-dark-600">Aucun membre dans cette équipe</p>
                 </td>
               </tr>
             </tbody>
@@ -340,46 +376,49 @@
   </div>
 </div>
 
-<!-- Add Member Modal -->
+<!-- ========== ADD MEMBER MODAL ========== -->
 <div
   *ngIf="showAddMemberModal()"
-  class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]"
-  (click)="closeModals()"
+  class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4"
 >
-  <div
-    class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4"
-    (click)="$event.stopPropagation()"
-  >
-    <div class="flex items-center justify-between p-6 border-b border-gray-200">
+  <div class="bg-white rounded-lg max-w-md w-full p-6">
+    <div class="flex items-center justify-between mb-6">
       <h2 class="text-xl font-semibold text-dark-900">Ajouter un membre</h2>
-      <button (click)="closeModals()" class="btn-icon">
+      <button (click)="showAddMemberModal.set(false)" class="btn-icon">
         <lucide-angular [img]="XIcon" class="w-5 h-5"></lucide-angular>
       </button>
     </div>
 
-    <div class="p-6 space-y-4">
+    <form (ngSubmit)="addMemberToTeam()" class="space-y-4">
       <div>
         <label class="input-label">Sélectionner un utilisateur</label>
-        <select [(ngModel)]="selectedUserId" class="input-field">
-          <option [value]="null">-- Choisir un utilisateur --</option>
+        <select
+          [(ngModel)]="selectedUserId"
+          name="userId"
+          class="input-field"
+          required
+        >
+          <option [value]="null" disabled>Choisir un utilisateur</option>
           <option *ngFor="let user of availableUsers()" [value]="user.id">
-            {{ getUserFullName(user) }} ({{ user.email }})
+            {{ getUserFullName(user) }} - {{ user.email }}
           </option>
         </select>
       </div>
 
       <div class="flex gap-3 pt-4">
-        <button (click)="closeModals()" class="btn-secondary flex-1">
+        <button
+          type="button"
+          (click)="showAddMemberModal.set(false)"
+          class="btn-secondary flex-1"
+          [disabled]="isModalLoading()"
+        >
           Annuler
         </button>
-        <button
-          (click)="addMemberToTeam()"
-          [disabled]="!selectedUserId()"
-          class="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Ajouter
+        <button type="submit" class="btn-primary flex-1" [disabled]="isModalLoading()">
+          <span *ngIf="!isModalLoading()">Ajouter</span>
+          <span *ngIf="isModalLoading()">Ajout...</span>
         </button>
       </div>
-    </div>
+    </form>
   </div>
 </div>

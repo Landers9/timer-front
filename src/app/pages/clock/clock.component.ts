@@ -1,34 +1,26 @@
 // src/app/pages/clock/clock.component.ts
-import { Component, OnInit, signal, computed, OnDestroy } from '@angular/core';
+import { Component, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import {
   LucideAngularModule,
-  Play,
-  Pause,
-  RotateCcw,
-  Coffee,
-  ArrowLeft,
-  Clock,
-  Users,
-  Settings,
+  Clock as ClockIcon,
+  Plus,
+  Calendar,
+  TrendingUp,
 } from 'lucide-angular';
-import { AuthService } from '../../services/auth.service';
+import { ClockService, ApiClockRecord } from '../../services/clock.service';
+import { UserService } from '../../services/user.service';
 
-interface SessionData {
-  workStartTime: number | null;
-  breakStartTime: number | null;
-  totalWorkSeconds: number;
-  totalBreakSeconds: number;
-  isWorkActive: boolean;
-  isBreakActive: boolean;
-  sessions: { clockIn: string; clockOut: string }[];
-}
-
-interface SessionDisplay {
-  index: number;
-  clockIn: string;
-  clockOut: string;
+interface ClockHistoryDisplay {
+  id: string;
+  date: string;
+  clockInTime: string;
+  clockOutTime: string;
+  breakInTime: string;
+  breakOutTime: string;
+  totalHours: string;
+  status: 'completed' | 'in-progress';
 }
 
 @Component({
@@ -38,241 +30,186 @@ interface SessionDisplay {
   templateUrl: './clock.component.html',
   styleUrl: './clock.component.css',
 })
-export class ClockComponent implements OnInit, OnDestroy {
-  readonly PlayIcon = Play;
-  readonly PauseIcon = Pause;
-  readonly RotateCcwIcon = RotateCcw;
-  readonly CoffeeIcon = Coffee;
-  readonly ArrowLeftIcon = ArrowLeft;
-  readonly ClockIcon = Clock;
-  readonly UsersIcon = Users;
-  readonly SettingsIcon = Settings;
+export class ClockComponent implements OnInit {
+  readonly ClockIcon = ClockIcon;
+  readonly PlusIcon = Plus;
 
-  // State signals
-  currentTime = signal('00:00');
-  workTime = signal(0);
-  breakTime = signal(0);
-  isWorkActive = signal(false);
-  isBreakActive = signal(false);
+  // Data
+  clockHistory = signal<ClockHistoryDisplay[]>([]);
+  isLoading = signal(false);
+  errorMessage = signal<string | null>(null);
+  currentUserId = signal<string | null>(null);
 
-  // Computed displays
-  workDisplay = computed(() => this.formatTime(this.workTime()));
-  breakDisplay = computed(() => this.formatTime(this.breakTime()));
+  constructor(
+    private clockService: ClockService,
+    private userService: UserService,
+    private router: Router
+  ) {}
 
-  totalToday = computed(() => {
-    const work = this.workTime();
-    const breakTime = this.breakTime();
-    const total = work + breakTime;
-    return this.formatTime(total);
-  });
-
-  productivityPercent = computed(() => {
-    const work = this.workTime();
-    const breakTime = this.breakTime();
-    const total = work + breakTime;
-    if (total === 0) return 0;
-    return Math.round((work / total) * 100);
-  });
-
-  statusMessage = computed(() => {
-    if (this.isWorkActive()) return "You're on the clock.";
-    if (this.isBreakActive()) return "You're on break.";
-    return "You're off the clock.";
-  });
-
-  private timeInterval: any;
-  private sessionKey = 'clockSession';
-  private sessionData: SessionData = {
-    workStartTime: null,
-    breakStartTime: null,
-    totalWorkSeconds: 0,
-    totalBreakSeconds: 0,
-    isWorkActive: false,
-    isBreakActive: false,
-    sessions: [],
-  };
-
-  constructor(private authService: AuthService, private router: Router) {
-    this.loadSessionData();
+  ngOnInit(): void {
+    this.loadCurrentUser();
   }
 
-  ngOnInit() {
-    this.updateTimers();
-    this.timeInterval = setInterval(() => this.updateTimers(), 1000);
-  }
-
-  ngOnDestroy() {
-    if (this.timeInterval) clearInterval(this.timeInterval);
-    this.saveSessionData();
-  }
-
-  private loadSessionData() {
-    const stored = localStorage.getItem(this.sessionKey);
-    if (stored) {
-      this.sessionData = JSON.parse(stored);
-      this.isWorkActive.set(this.sessionData.isWorkActive);
-      this.isBreakActive.set(this.sessionData.isBreakActive);
-      this.workTime.set(this.sessionData.totalWorkSeconds);
-      this.breakTime.set(this.sessionData.totalBreakSeconds);
-    }
-  }
-
-  private saveSessionData() {
-    this.sessionData.totalWorkSeconds = this.workTime();
-    this.sessionData.totalBreakSeconds = this.breakTime();
-    this.sessionData.isWorkActive = this.isWorkActive();
-    this.sessionData.isBreakActive = this.isBreakActive();
-    localStorage.setItem(this.sessionKey, JSON.stringify(this.sessionData));
-  }
-
-  private updateTimers() {
-    // Update current time
-    const now = new Date();
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    this.currentTime.set(`${hours}:${minutes}`);
-
-    const timestamp = Date.now();
-
-    // Update work timer
-    if (this.isWorkActive() && this.sessionData.workStartTime) {
-      const elapsed = Math.floor(
-        (timestamp - this.sessionData.workStartTime) / 1000
-      );
-      this.workTime.set(this.sessionData.totalWorkSeconds + elapsed);
-    }
-
-    // Update break timer
-    if (this.isBreakActive() && this.sessionData.breakStartTime) {
-      const elapsed = Math.floor(
-        (timestamp - this.sessionData.breakStartTime) / 1000
-      );
-      this.breakTime.set(this.sessionData.totalBreakSeconds + elapsed);
-    }
-
-    this.saveSessionData();
-  }
-
-  toggleWork() {
-    const now = Date.now();
-
-    if (this.isWorkActive()) {
-      // Stop work
-      if (this.sessionData.workStartTime) {
-        const elapsed = Math.floor(
-          (now - this.sessionData.workStartTime) / 1000
+  /**
+   * Charger l'utilisateur connecté et son historique
+   */
+  private loadCurrentUser(): void {
+    this.userService.getCurrentUser().subscribe({
+      next: (user) => {
+        this.currentUserId.set(user.id);
+        this.loadClockHistory(user.id);
+      },
+      error: (error) => {
+        console.error("Erreur lors du chargement de l'utilisateur:", error);
+        this.errorMessage.set(
+          'Impossible de charger les informations utilisateur'
         );
-        this.sessionData.totalWorkSeconds += elapsed;
-        this.workTime.set(this.sessionData.totalWorkSeconds);
-
-        // Save session
-        const clockOut = this.getCurrentTime();
-        if (this.sessionData.sessions.length > 0) {
-          const lastSession =
-            this.sessionData.sessions[this.sessionData.sessions.length - 1];
-          if (!lastSession.clockOut) {
-            lastSession.clockOut = clockOut;
-          }
-        }
-      }
-      this.sessionData.workStartTime = null;
-      this.isWorkActive.set(false);
-      this.isBreakActive.set(false);
-      this.sessionData.breakStartTime = null;
-    } else {
-      // Start work
-      const clockIn = this.getCurrentTime();
-      this.sessionData.sessions.push({ clockIn, clockOut: '' });
-      this.sessionData.workStartTime = now;
-      this.isWorkActive.set(true);
-      this.isBreakActive.set(false);
-      this.sessionData.breakStartTime = null;
-    }
-
-    this.saveSessionData();
+      },
+    });
   }
 
-  toggleBreak() {
-    if (!this.isWorkActive()) return;
+  /**
+   * Charger l'historique des clocks
+   */
+  loadClockHistory(userId: string): void {
+    this.isLoading.set(true);
+    this.errorMessage.set(null);
 
-    const now = Date.now();
-
-    if (this.isBreakActive()) {
-      // Stop break, resume work
-      if (this.sessionData.breakStartTime) {
-        const elapsed = Math.floor(
-          (now - this.sessionData.breakStartTime) / 1000
+    this.clockService.getUserClocks(userId).subscribe({
+      next: (records) => {
+        const displayRecords = records.map(this.mapApiClockToDisplay);
+        this.clockHistory.set(displayRecords);
+        this.isLoading.set(false);
+      },
+      error: (error) => {
+        console.error("Erreur lors du chargement de l'historique:", error);
+        this.errorMessage.set(
+          error.message || "Erreur lors du chargement de l'historique"
         );
-        this.sessionData.totalBreakSeconds += elapsed;
-        this.breakTime.set(this.sessionData.totalBreakSeconds);
+        this.isLoading.set(false);
+      },
+    });
+  }
+
+  /**
+   * Mapper ApiClockRecord vers ClockHistoryDisplay
+   */
+  private mapApiClockToDisplay(record: ApiClockRecord): ClockHistoryDisplay {
+    const clockInTime = record.clock_in_time
+      ? new Date(record.clock_in_time)
+      : null;
+    const clockOutTime = record.clock_out_time
+      ? new Date(record.clock_out_time)
+      : null;
+    const breakInTime = record.break_in_time
+      ? new Date(record.break_in_time)
+      : null;
+    const breakOutTime = record.break_out_time
+      ? new Date(record.break_out_time)
+      : null;
+
+    let totalHours = '0h 0m';
+    let status: 'completed' | 'in-progress' = 'in-progress';
+
+    if (clockInTime && clockOutTime) {
+      const diffMs = clockOutTime.getTime() - clockInTime.getTime();
+
+      // Soustraire le temps de pause si présent
+      let breakMs = 0;
+      if (breakInTime && breakOutTime) {
+        breakMs = breakOutTime.getTime() - breakInTime.getTime();
       }
-      this.sessionData.breakStartTime = null;
-      this.isBreakActive.set(false);
-      this.sessionData.workStartTime = now;
-    } else {
-      // Start break
-      if (this.sessionData.workStartTime) {
-        const elapsed = Math.floor(
-          (now - this.sessionData.workStartTime) / 1000
-        );
-        this.sessionData.totalWorkSeconds += elapsed;
-        this.workTime.set(this.sessionData.totalWorkSeconds);
-      }
-      this.sessionData.breakStartTime = now;
-      this.isBreakActive.set(true);
-      this.sessionData.workStartTime = null;
+
+      const totalMs = diffMs - breakMs;
+      const hours = Math.floor(totalMs / (1000 * 60 * 60));
+      const minutes = Math.floor((totalMs % (1000 * 60 * 60)) / (1000 * 60));
+      totalHours = `${hours}h ${minutes}m`;
+      status = 'completed';
     }
 
-    this.saveSessionData();
+    return {
+      id: record.id,
+      date: clockInTime ? clockInTime.toLocaleDateString('fr-FR') : 'N/A',
+      clockInTime: clockInTime ? this.formatTime(clockInTime) : 'N/A',
+      clockOutTime: clockOutTime ? this.formatTime(clockOutTime) : 'En cours',
+      breakInTime: breakInTime ? this.formatTime(breakInTime) : 'N/A',
+      breakOutTime: breakOutTime ? this.formatTime(breakOutTime) : 'N/A',
+      totalHours,
+      status,
+    };
   }
 
-  resetDay() {
-    if (confirm('Êtes-vous sûr? Cela réinitialisera tous les temps du jour.')) {
-      this.workTime.set(0);
-      this.breakTime.set(0);
-      this.isWorkActive.set(false);
-      this.isBreakActive.set(false);
-      this.sessionData = {
-        workStartTime: null,
-        breakStartTime: null,
-        totalWorkSeconds: 0,
-        totalBreakSeconds: 0,
-        isWorkActive: false,
-        isBreakActive: false,
-        sessions: [],
-      };
-      this.saveSessionData();
-    }
+  /**
+   * Aller vers la page d'action clock
+   */
+  goToClockAction(): void {
+    this.router.navigate(['/clock/action']);
   }
 
-  getSessionHistory(): SessionDisplay[] {
-    return this.sessionData.sessions
-      .filter((s) => s.clockOut)
-      .map((s, i) => ({
-        index: i + 1,
-        clockIn: s.clockIn,
-        clockOut: s.clockOut,
-      }));
+  /**
+   * Retourner au dashboard
+   */
+  goBack(): void {
+    this.router.navigate(['/dashboard']);
   }
 
-  private getCurrentTime(): string {
-    const now = new Date();
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
+  /**
+   * Formater une date en heure (HH:MM)
+   */
+  private formatTime(date: Date): string {
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
     return `${hours}:${minutes}`;
   }
 
-  private formatTime(seconds: number): string {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(
-      2,
-      '0'
-    )}:${String(secs).padStart(2, '0')}`;
+  /**
+   * Parser une date depuis une string
+   */
+  private parseDate(dateStr: string): Date {
+    const parts = dateStr.split('/');
+    if (parts.length === 3) {
+      return new Date(
+        parseInt(parts[2]),
+        parseInt(parts[1]) - 1,
+        parseInt(parts[0])
+      );
+    }
+    return new Date(dateStr);
   }
 
-  goBack() {
-    this.router.navigate(['/dashboard']);
+  /**
+   * Convertir "Xh Ym" en secondes
+   */
+  private parseTimeToSeconds(timeStr: string): number {
+    const hoursMatch = timeStr.match(/(\d+)h/);
+    const minutesMatch = timeStr.match(/(\d+)m/);
+
+    const hours = hoursMatch ? parseInt(hoursMatch[1]) : 0;
+    const minutes = minutesMatch ? parseInt(minutesMatch[1]) : 0;
+
+    return hours * 3600 + minutes * 60;
+  }
+
+  /**
+   * Convertir des secondes en "Xh Ym"
+   */
+  private formatSecondsToHours(seconds: number): string {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return `${hours}h ${minutes}m`;
+  }
+
+  /**
+   * Obtenir la classe CSS pour le badge de statut
+   */
+  getStatusBadgeClass(status: string): string {
+    return status === 'completed' ? 'badge-success' : 'badge-warning';
+  }
+
+  /**
+   * Obtenir le label du statut
+   */
+  getStatusLabel(status: string): string {
+    return status === 'completed' ? 'Terminé' : 'En cours';
   }
 }

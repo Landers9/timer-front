@@ -13,21 +13,11 @@ import {
   UserPlus,
   UserMinus,
 } from 'lucide-angular';
-
-interface User {
-  id: number;
-  firstName: string;
-  lastName: string;
-  email: string;
-  role: 'employee' | 'manager';
-}
-
-interface Team {
-  id: number;
-  name: string;
-  description: string;
-  memberIds: number[];
-}
+import { Team, TeamMember } from '../../models/team.model';
+import { User } from '../../models/user.model';
+import { TeamService, ApiTeam } from '../../services/team.service';
+import { UserService, ApiUser } from '../../services/user.service';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-teams',
@@ -48,70 +38,13 @@ export class TeamsComponent implements OnInit {
   readonly UserMinusIcon = UserMinus;
 
   // Data
-  teams = signal<Team[]>([
-    {
-      id: 1,
-      name: 'Équipe Développement',
-      description: 'Équipe de développement logiciel',
-      memberIds: [1, 3, 4],
-    },
-    {
-      id: 2,
-      name: 'Équipe Marketing',
-      description: 'Équipe marketing et communication',
-      memberIds: [2],
-    },
-    {
-      id: 3,
-      name: 'Équipe Ventes',
-      description: 'Équipe commerciale',
-      memberIds: [],
-    },
-    {
-      id: 4,
-      name: 'Équipe Support',
-      description: 'Support client et technique',
-      memberIds: [5],
-    },
-  ]);
+  teams = signal<Team[]>([]);
+  allUsers = signal<User[]>([]);
+  teamMembers = signal<TeamMember[]>([]);
 
-  allUsers = signal<User[]>([
-    {
-      id: 1,
-      firstName: 'Jean',
-      lastName: 'Dupont',
-      email: 'jean.dupont@example.com',
-      role: 'employee',
-    },
-    {
-      id: 2,
-      firstName: 'Marie',
-      lastName: 'Martin',
-      email: 'marie.martin@example.com',
-      role: 'manager',
-    },
-    {
-      id: 3,
-      firstName: 'Pierre',
-      lastName: 'Bernard',
-      email: 'pierre.bernard@example.com',
-      role: 'employee',
-    },
-    {
-      id: 4,
-      firstName: 'Sophie',
-      lastName: 'Dubois',
-      email: 'sophie.dubois@example.com',
-      role: 'employee',
-    },
-    {
-      id: 5,
-      firstName: 'Luc',
-      lastName: 'Moreau',
-      email: 'luc.moreau@example.com',
-      role: 'manager',
-    },
-  ]);
+  // Loading states
+  isLoading = signal(false);
+  isModalLoading = signal(false);
 
   // Search
   searchQuery = signal('');
@@ -124,14 +57,27 @@ export class TeamsComponent implements OnInit {
   showAddMemberModal = signal(false);
 
   // Form data
-  formData = signal<Partial<Team>>({
+  formData = signal<{
+    name?: string;
+    description?: string;
+    memberIds?: string[];
+  }>({
     name: '',
     description: '',
     memberIds: [],
   });
 
   selectedTeam = signal<Team | null>(null);
-  selectedUserId = signal<number | null>(null);
+  selectedUserId = signal<string | null>(null);
+
+  // Current user
+  currentUserId = signal<string | null>(null);
+
+  constructor(
+    private teamService: TeamService,
+    private userService: UserService,
+    private authService: AuthService
+  ) {}
 
   // Filtered teams
   filteredTeams = computed(() => {
@@ -149,15 +95,7 @@ export class TeamsComponent implements OnInit {
     return filtered;
   });
 
-  // Team members
-  teamMembers = computed(() => {
-    const team = this.selectedTeam();
-    if (!team) return [];
-
-    return this.allUsers().filter((user) => team.memberIds.includes(user.id));
-  });
-
-  // Available users (not in team)
+  // Available users (not in current team)
   availableUsers = computed(() => {
     const team = this.selectedTeam();
     if (!team) return this.allUsers();
@@ -166,10 +104,112 @@ export class TeamsComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    // Load teams from API
+    this.loadCurrentUser();
+    this.loadTeams();
+    this.loadAllUsers();
   }
 
-  // CRUD Operations
+  // ========== DATA LOADING ==========
+
+  loadCurrentUser(): void {
+    const user = this.authService.currentUser();
+    if (user) {
+      this.currentUserId.set(user.id);
+    }
+  }
+
+  loadTeams(): void {
+    this.isLoading.set(true);
+    this.teamService.getAllTeams().subscribe({
+      next: (apiTeams: ApiTeam[]) => {
+        const teams: Team[] = apiTeams.map((apiTeam) => ({
+          id: apiTeam.id,
+          name: apiTeam.name,
+          description: apiTeam.description,
+          manager: apiTeam.manager,
+          memberIds: [], // Sera rempli si nécessaire
+        }));
+        this.teams.set(teams);
+        this.isLoading.set(false);
+      },
+      error: (error) => {
+        console.error('Erreur lors du chargement des équipes:', error);
+        this.isLoading.set(false);
+      },
+    });
+  }
+
+  loadAllUsers(): void {
+    this.userService.getAllUsers().subscribe({
+      next: (apiUsers: ApiUser[]) => {
+        const users: User[] = apiUsers.map((apiUser) => ({
+          id: apiUser.id,
+          email: apiUser.email,
+          first_name: apiUser.first_name,
+          last_name: apiUser.last_name,
+          phone_number: apiUser.phone_number,
+          role: apiUser.role,
+          is_active: apiUser.is_active,
+          is_verified: apiUser.is_verified,
+          created_at: apiUser.created_at,
+          updated_at: apiUser.updated_at,
+          device_id: apiUser.device_id,
+          fingerprint_id: apiUser.fingerprint_id,
+          position: apiUser.position,
+          department: apiUser.department,
+          hire_date: apiUser.hire_date,
+          created_by: apiUser.created_by,
+        }));
+        this.allUsers.set(users);
+      },
+      error: (error) => {
+        console.error('Erreur lors du chargement des utilisateurs:', error);
+      },
+    });
+  }
+
+  loadTeamMembers(teamId: string): void {
+    this.isModalLoading.set(true);
+    this.teamService.getTeamEmployees(teamId).subscribe({
+      next: (apiUsers: ApiUser[]) => {
+        const members: TeamMember[] = apiUsers.map((apiUser) => ({
+          id: apiUser.id,
+          email: apiUser.email,
+          first_name: apiUser.first_name,
+          last_name: apiUser.last_name,
+          phone_number: apiUser.phone_number,
+          role: apiUser.role,
+          is_active: apiUser.is_active,
+          is_verified: apiUser.is_verified,
+          created_at: apiUser.created_at,
+          updated_at: apiUser.updated_at,
+          device_id: apiUser.device_id,
+          fingerprint_id: apiUser.fingerprint_id,
+          position: apiUser.position,
+          department: apiUser.department,
+          hire_date: apiUser.hire_date,
+          created_by: apiUser.created_by,
+        }));
+        this.teamMembers.set(members);
+
+        // Update the team's memberIds
+        const team = this.selectedTeam();
+        if (team) {
+          team.memberIds = members.map((m) => m.id);
+          this.selectedTeam.set({ ...team });
+        }
+
+        this.isModalLoading.set(false);
+      },
+      error: (error) => {
+        console.error('Erreur lors du chargement des membres:', error);
+        this.isModalLoading.set(false);
+      },
+    });
+  }
+
+  // ========== MODAL ACTIONS ==========
+
   openCreateModal(): void {
     this.formData.set({
       name: '',
@@ -181,7 +221,11 @@ export class TeamsComponent implements OnInit {
 
   openEditModal(team: Team): void {
     this.selectedTeam.set(team);
-    this.formData.set({ ...team });
+    this.formData.set({
+      name: team.name,
+      description: team.description,
+      memberIds: team.memberIds,
+    });
     this.showEditModal.set(true);
   }
 
@@ -192,7 +236,9 @@ export class TeamsComponent implements OnInit {
 
   openDetailsModal(team: Team): void {
     this.selectedTeam.set(team);
+    this.teamMembers.set([]);
     this.showDetailsModal.set(true);
+    this.loadTeamMembers(team.id);
   }
 
   openAddMemberModal(): void {
@@ -208,94 +254,172 @@ export class TeamsComponent implements OnInit {
     this.showAddMemberModal.set(false);
     this.selectedTeam.set(null);
     this.selectedUserId.set(null);
+    this.teamMembers.set([]);
   }
 
+  // ========== CRUD OPERATIONS ==========
+
   createTeam(): void {
-    const newTeam: Team = {
-      id: Math.max(...this.teams().map((t) => t.id)) + 1,
+    this.isModalLoading.set(true);
+    const managerId = this.currentUserId();
+
+    if (!managerId) {
+      console.error('Manager ID non disponible');
+      this.isModalLoading.set(false);
+      return;
+    }
+
+    const teamData = {
       name: this.formData().name!,
       description: this.formData().description!,
-      memberIds: this.formData().memberIds!,
+      manager: managerId,
     };
 
-    this.teams.update((teams) => [...teams, newTeam]);
-    this.closeModals();
+    this.teamService.createTeam(teamData).subscribe({
+      next: (apiTeam: ApiTeam) => {
+        const newTeam: Team = {
+          id: apiTeam.id,
+          name: apiTeam.name,
+          description: apiTeam.description,
+          manager: apiTeam.manager,
+          memberIds: [],
+        };
+        this.teams.update((teams) => [...teams, newTeam]);
+        this.isModalLoading.set(false);
+        this.closeModals();
+      },
+      error: (error) => {
+        console.error("Erreur lors de la création de l'équipe:", error);
+        this.isModalLoading.set(false);
+      },
+    });
   }
 
   updateTeam(): void {
-    const teamId = this.selectedTeam()?.id;
-    if (!teamId) return;
+    const team = this.selectedTeam();
+    if (!team) return;
 
-    this.teams.update((teams) =>
-      teams.map((team) =>
-        team.id === teamId ? ({ ...team, ...this.formData() } as Team) : team
-      )
-    );
-    this.closeModals();
+    this.isModalLoading.set(true);
+
+    const teamData = {
+      name: this.formData().name,
+      description: this.formData().description,
+    };
+
+    this.teamService.updateTeam(team.id, teamData).subscribe({
+      next: (apiTeam: ApiTeam) => {
+        this.teams.update((teams) =>
+          teams.map((t) =>
+            t.id === team.id
+              ? {
+                  ...t,
+                  name: apiTeam.name,
+                  description: apiTeam.description,
+                }
+              : t
+          )
+        );
+        this.isModalLoading.set(false);
+        this.closeModals();
+      },
+      error: (error) => {
+        console.error("Erreur lors de la mise à jour de l'équipe:", error);
+        this.isModalLoading.set(false);
+      },
+    });
   }
 
   deleteTeam(): void {
-    const teamId = this.selectedTeam()?.id;
-    if (!teamId) return;
+    const team = this.selectedTeam();
+    if (!team) return;
 
-    this.teams.update((teams) => teams.filter((team) => team.id !== teamId));
-    this.closeModals();
+    this.isModalLoading.set(true);
+
+    this.teamService.deleteTeam(team.id).subscribe({
+      next: () => {
+        this.teams.update((teams) => teams.filter((t) => t.id !== team.id));
+        this.isModalLoading.set(false);
+        this.closeModals();
+      },
+      error: (error) => {
+        console.error("Erreur lors de la suppression de l'équipe:", error);
+        this.isModalLoading.set(false);
+      },
+    });
   }
 
-  // Member Management
+  // ========== MEMBER MANAGEMENT ==========
+
   addMemberToTeam(): void {
     const userId = this.selectedUserId();
-    const teamId = this.selectedTeam()?.id;
+    const team = this.selectedTeam();
 
-    if (!userId || !teamId) return;
+    if (!userId || !team) return;
 
-    this.teams.update((teams) =>
-      teams.map((team) =>
-        team.id === teamId
-          ? { ...team, memberIds: [...team.memberIds, userId] }
-          : team
-      )
-    );
+    this.isModalLoading.set(true);
 
-    // Update selected team
-    const updatedTeam = this.teams().find((t) => t.id === teamId);
-    if (updatedTeam) {
-      this.selectedTeam.set(updatedTeam);
-    }
-
-    this.showAddMemberModal.set(false);
-    this.selectedUserId.set(null);
+    this.teamService.addMemberToTeam(team.id, { user_id: userId }).subscribe({
+      next: (response) => {
+        // Recharger les membres de l'équipe
+        this.loadTeamMembers(team.id);
+        this.showAddMemberModal.set(false);
+        this.selectedUserId.set(null);
+        this.isModalLoading.set(false);
+      },
+      error: (error) => {
+        console.error("Erreur lors de l'ajout du membre:", error);
+        this.isModalLoading.set(false);
+      },
+    });
   }
 
-  removeMemberFromTeam(userId: number): void {
-    const teamId = this.selectedTeam()?.id;
-    if (!teamId) return;
+  removeMemberFromTeam(userId: string): void {
+    const team = this.selectedTeam();
+    if (!team) return;
 
-    this.teams.update((teams) =>
-      teams.map((team) =>
-        team.id === teamId
-          ? { ...team, memberIds: team.memberIds.filter((id) => id !== userId) }
-          : team
-      )
-    );
+    this.isModalLoading.set(true);
 
-    // Update selected team
-    const updatedTeam = this.teams().find((t) => t.id === teamId);
-    if (updatedTeam) {
-      this.selectedTeam.set(updatedTeam);
-    }
+    this.teamService
+      .removeMemberFromTeam(team.id, { user_id: userId })
+      .subscribe({
+        next: (response) => {
+          // Recharger les membres de l'équipe
+          this.loadTeamMembers(team.id);
+          this.isModalLoading.set(false);
+        },
+        error: (error) => {
+          console.error('Erreur lors du retrait du membre:', error);
+          this.isModalLoading.set(false);
+        },
+      });
   }
 
-  // Helpers
+  // ========== HELPERS ==========
+
   getMemberCount(team: Team): number {
     return team.memberIds.length;
   }
 
-  getUserFullName(user: User): string {
-    return `${user.firstName} ${user.lastName}`;
+  getUserFullName(user: User | TeamMember): string {
+    return `${user.first_name} ${user.last_name}`;
   }
 
   getRoleBadgeClass(role: string): string {
-    return role === 'manager' ? 'badge-primary' : 'badge-secondary';
+    return role === 'MANAGER' || role === 'ADMIN'
+      ? 'badge-primary'
+      : 'badge-secondary';
+  }
+
+  getRoleLabel(role: string): string {
+    switch (role) {
+      case 'ADMIN':
+        return 'Admin';
+      case 'MANAGER':
+        return 'Manager';
+      case 'EMPLOYEE':
+        return 'Employé';
+      default:
+        return role;
+    }
   }
 }

@@ -1,0 +1,225 @@
+<!-- src/app/pages/clock-action/clock-action.component.html -->
+<div class="min-h-screen bg-dark-900 text-white p-4 sm:p-6 flex flex-col">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-8 mt-2">
+    <button (click)="goBack()" class="text-white hover:text-gray-400">
+      <lucide-angular [img]="ArrowLeftIcon" class="w-6 h-6"></lucide-angular>
+    </button>
+    <h1 class="text-xl font-bold">Time clock</h1>
+    <button class="text-white hover:text-gray-400">
+      <lucide-angular [img]="SettingsIcon" class="w-6 h-6"></lucide-angular>
+    </button>
+  </div>
+
+  <!-- Error Message -->
+  @if (errorMessage()) {
+    <div class="mb-4 bg-error bg-opacity-20 border border-error text-white px-4 py-3 rounded flex items-center justify-between">
+      <span class="text-sm">{{ errorMessage() }}</span>
+      <button (click)="dismissError()" class="text-white hover:text-gray-300">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
+    </div>
+  }
+
+  <!-- Team Info -->
+  <div class="flex items-center justify-between mb-12 px-2">
+    <div class="flex items-center gap-2">
+      <lucide-angular [img]="UsersIcon" class="w-5 h-5 text-dark-400"></lucide-angular>
+      <span class="text-sm text-dark-400">Team</span>
+    </div>
+    <span class="text-sm text-dark-400">Landers9</span>
+  </div>
+
+  <!-- Main Content -->
+  <div class="flex-1 flex flex-col items-center justify-center space-y-12">
+
+    <!-- Time Display -->
+    <div class="text-center">
+      <p class="text-8xl font-bold font-mono text-white mb-6">{{ currentTime() }}</p>
+      <p class="text-lg text-dark-400">{{ statusMessage() }}</p>
+    </div>
+
+    <!-- Divider -->
+    <div class="w-full h-px bg-dark-700"></div>
+
+    <!-- Shift Timer (Not Working) -->
+    <div *ngIf="!isWorkActive() && !isBreakActive()" class="w-full flex flex-col items-center space-y-8">
+      <h2 class="text-base font-semibold flex items-center gap-2">
+        <lucide-angular [img]="ClockIcon" class="w-5 h-5"></lucide-angular>
+        Shift
+      </h2>
+
+      <div class="relative w-48 h-48">
+        <svg class="w-full h-full" viewBox="0 0 160 160">
+          <circle cx="80" cy="80" r="70" fill="none" stroke="#2d3748" stroke-width="8"/>
+          <circle cx="80" cy="80" r="70" fill="none" stroke="#3b82f6" stroke-width="8" stroke-dasharray="440" stroke-dashoffset="0" transform="rotate(-90 80 80)"/>
+        </svg>
+        <div class="absolute inset-0 flex items-center justify-center">
+          @if (isLoading()) {
+            <div class="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+          } @else {
+            <lucide-angular [img]="PlayIcon" class="w-8 h-8 text-blue-400"></lucide-angular>
+          }
+        </div>
+      </div>
+
+      <p class="text-sm text-dark-400">{{ workDisplay() }}</p>
+
+      <button
+        (click)="toggleWork()"
+        [disabled]="isLoading()"
+        class="px-8 py-3 bg-primary-500 text-dark-900 font-semibold rounded-lg hover:bg-primary-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        @if (isLoading()) {
+          <span>Loading...</span>
+        } @else {
+          <span>Start Shift</span>
+        }
+      </button>
+    </div>
+
+    <!-- Work Active State -->
+    <div *ngIf="isWorkActive() && !isBreakActive()" class="w-full flex flex-col items-center space-y-8">
+      <h2 class="text-base font-semibold flex items-center gap-2">
+        <lucide-angular [img]="ClockIcon" class="w-5 h-5"></lucide-angular>
+        Shift
+      </h2>
+
+      <div class="relative w-48 h-48">
+        <svg class="w-full h-full" viewBox="0 0 160 160">
+          <circle cx="80" cy="80" r="70" fill="none" stroke="#2d3748" stroke-width="8"/>
+          <circle cx="80" cy="80" r="70" fill="none" stroke="#ef4444" stroke-width="8" stroke-dasharray="440" stroke-dashoffset="110" transform="rotate(-90 80 80)"/>
+        </svg>
+        <div class="absolute inset-0 flex items-center justify-center">
+          @if (isLoading()) {
+            <div class="w-8 h-8 border-4 border-error border-t-transparent rounded-full animate-spin"></div>
+          } @else {
+            <div class="w-8 h-8 bg-red-600 rounded-sm"></div>
+          }
+        </div>
+      </div>
+
+      <div class="text-center">
+        <p class="text-sm text-dark-400 mb-2">Tap and hold</p>
+        <p class="text-3xl font-mono font-bold text-white mb-4">{{ workDisplay() }}</p>
+      </div>
+
+      <button
+        (click)="toggleWork()"
+        [disabled]="isLoading()"
+        class="px-8 py-3 bg-error text-white font-semibold rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        @if (isLoading()) {
+          <span>Loading...</span>
+        } @else {
+          <span>End Shift</span>
+        }
+      </button>
+
+      <!-- Divider -->
+      <div class="w-full h-px bg-dark-700"></div>
+
+      <!-- Break Button -->
+      <div class="w-full flex flex-col items-center space-y-6">
+        <h2 class="text-base font-semibold flex items-center gap-2">
+          <lucide-angular [img]="CoffeeIcon" class="w-5 h-5"></lucide-angular>
+          Break
+        </h2>
+
+        <div class="relative w-32 h-32">
+          <svg class="w-full h-full" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="50" fill="none" stroke="#2d3748" stroke-width="6"/>
+            <circle cx="60" cy="60" r="50" fill="none" stroke="#10b981" stroke-width="6" stroke-dasharray="314" stroke-dashoffset="0" transform="rotate(-90 60 60)"/>
+          </svg>
+          <div class="absolute inset-0 flex items-center justify-center">
+            <lucide-angular [img]="CoffeeIcon" class="w-6 h-6 text-green-400"></lucide-angular>
+          </div>
+        </div>
+
+        <p class="text-sm text-dark-400">{{ breakDisplay() }}</p>
+
+        <button
+          (click)="toggleBreak()"
+          [disabled]="isLoading()"
+          class="px-6 py-2 bg-success text-white font-semibold rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          @if (isLoading()) {
+            <span>Loading...</span>
+          } @else {
+            <span>Start Break</span>
+          }
+        </button>
+      </div>
+    </div>
+
+    <!-- Break Active State -->
+    <div *ngIf="isBreakActive()" class="w-full flex flex-col items-center space-y-8">
+      <h2 class="text-base font-semibold flex items-center gap-2">
+        <lucide-angular [img]="CoffeeIcon" class="w-5 h-5"></lucide-angular>
+        Break
+      </h2>
+
+      <div class="relative w-48 h-48">
+        <svg class="w-full h-full" viewBox="0 0 160 160">
+          <circle cx="80" cy="80" r="70" fill="none" stroke="#2d3748" stroke-width="8"/>
+          <circle cx="80" cy="80" r="70" fill="none" stroke="#10b981" stroke-width="8" stroke-dasharray="440" stroke-dashoffset="110" transform="rotate(-90 80 80)"/>
+        </svg>
+        <div class="absolute inset-0 flex items-center justify-center">
+          @if (isLoading()) {
+            <div class="w-8 h-8 border-4 border-success border-t-transparent rounded-full animate-spin"></div>
+          } @else {
+            <lucide-angular [img]="CoffeeIcon" class="w-8 h-8 text-green-400"></lucide-angular>
+          }
+        </div>
+      </div>
+
+      <div class="text-center">
+        <p class="text-sm text-dark-400 mb-2">Taking a break</p>
+        <p class="text-3xl font-mono font-bold text-white mb-4">{{ breakDisplay() }}</p>
+      </div>
+
+      <button
+        (click)="toggleBreak()"
+        [disabled]="isLoading()"
+        class="px-8 py-3 bg-success text-white font-semibold rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        @if (isLoading()) {
+          <span>Loading...</span>
+        } @else {
+          <span>End Break</span>
+        }
+      </button>
+    </div>
+  </div>
+
+  <!-- Bottom Stats -->
+  <div class="mt-12 grid grid-cols-3 gap-4 text-center border-t border-dark-700 pt-6">
+    <div>
+      <p class="text-xs text-dark-400 mb-1">Work</p>
+      <p class="text-sm font-mono text-white">{{ workDisplay() }}</p>
+    </div>
+    <div>
+      <p class="text-xs text-dark-400 mb-1">Break</p>
+      <p class="text-sm font-mono text-white">{{ breakDisplay() }}</p>
+    </div>
+    <div>
+      <p class="text-xs text-dark-400 mb-1">Total</p>
+      <p class="text-sm font-mono text-white">{{ totalToday() }}</p>
+    </div>
+  </div>
+
+  <!-- Reset Button -->
+  <div class="mt-6 text-center">
+    <button
+      (click)="resetDay()"
+      [disabled]="isLoading()"
+      class="text-dark-400 hover:text-white text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 mx-auto"
+    >
+      <lucide-angular [img]="RotateCcwIcon" class="w-4 h-4"></lucide-angular>
+      <span>Reset Day</span>
+    </button>
+  </div>
+</div>
