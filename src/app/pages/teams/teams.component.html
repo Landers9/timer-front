@@ -17,7 +17,7 @@
   </div>
 
   <!-- Search -->
-  <div class="bg-white rounded-lg border border-gray-200 p-4">
+  <div class="bg-white rounded border border-gray-200 p-4">
     <div class="relative max-w-md">
       <input
         type="text"
@@ -37,7 +37,7 @@
   </div>
 
   <!-- Teams Table -->
-  <div *ngIf="!isLoading()" class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+  <div *ngIf="!isLoading()" class="bg-white rounded border border-gray-200 overflow-hidden">
     <div class="overflow-x-auto">
       <table class="w-full">
         <thead class="bg-gray-50 border-b border-gray-200">
@@ -79,21 +79,21 @@
                   class="btn-icon"
                   title="Voir les détails"
                 >
-                  <lucide-angular [img]="EyeIcon" class="w-5 h-5"></lucide-angular>
+                  <lucide-angular [img]="EyeIcon" class="w-4 h-4"></lucide-angular>
                 </button>
                 <button
                   (click)="openEditModal(team)"
                   class="btn-icon"
                   title="Modifier"
                 >
-                  <lucide-angular [img]="EditIcon" class="w-5 h-5"></lucide-angular>
+                  <lucide-angular [img]="EditIcon" class="w-4 h-4"></lucide-angular>
                 </button>
                 <button
                   (click)="openDeleteModal(team)"
                   class="btn-icon text-error hover:bg-red-50"
                   title="Supprimer"
                 >
-                  <lucide-angular [img]="Trash2Icon" class="w-5 h-5"></lucide-angular>
+                  <lucide-angular [img]="Trash2Icon" class="w-4 h-4"></lucide-angular>
                 </button>
               </div>
             </td>
