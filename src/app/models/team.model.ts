@@ -9,7 +9,6 @@ export interface Team {
   name: string;
   description: string;
   manager: string; // UUID du manager
-  memberIds: string[]; // Liste des UUIDs des membres
 }
 
 /**

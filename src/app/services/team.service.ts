@@ -6,7 +6,7 @@ import { catchError, map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 
 /**
- * Interface pour une équipe telle que retournée par l'API (format snake_case)
+ * Interface pour une équipe telle que retournée par l'API
  */
 export interface ApiTeam {
   id: string;
@@ -16,7 +16,7 @@ export interface ApiTeam {
 }
 
 /**
- * Interface pour la réponse de liste paginée des équipes
+ * Interface pour la réponse paginée des équipes
  */
 export interface ApiTeamsListResponse {
   count: number;
@@ -27,12 +27,23 @@ export interface ApiTeamsListResponse {
 }
 
 /**
+ * Interface pour la réponse paginée des employés
+ */
+export interface ApiEmployeesListResponse {
+  count: number;
+  next: boolean;
+  previous: boolean;
+  results: any[]; // Utilisateurs
+  code: number;
+}
+
+/**
  * Interface pour créer une équipe
  */
 export interface CreateTeamRequest {
   name: string;
   description: string;
-  manager: string; // UUID du manager qui crée
+  manager: string; // UUID du manager
 }
 
 /**
@@ -44,7 +55,7 @@ export interface UpdateTeamRequest {
 }
 
 /**
- * Interface pour ajouter un membre à une équipe
+ * Interface pour ajouter un membre
  */
 export interface AddMemberRequest {
   user_id: string;
@@ -59,7 +70,7 @@ export interface AddMemberResponse {
 }
 
 /**
- * Interface pour retirer un membre d'une équipe
+ * Interface pour retirer un membre
  */
 export interface RemoveMemberRequest {
   user_id: string;
@@ -74,12 +85,12 @@ export interface RemoveMemberResponse {
 }
 
 /**
- * Interface pour les membres d'une équipe
+ * Interface pour la réponse des membres d'une équipe
  */
 export interface TeamMembersResponse {
   team: string;
   manager: any;
-  members: string[];
+  members: string[]; // Tableau d'UUIDs
   total_members: number;
 }
 
@@ -152,13 +163,28 @@ export class TeamService {
   // ========== GESTION DES MEMBRES ==========
 
   /**
-   * GET /teams/{id}/employees/ - Récupérer les employés d'une équipe
+   * GET /teams/{id}/employees/ - Récupérer les employés créés par le manager de cette équipe
+   * Ces employés sont disponibles pour être ajoutés à l'équipe
    * @param teamId - ID de l'équipe
-   * @returns Observable<any[]> - Liste des utilisateurs
+   * @returns Observable<any[]> - Liste des employés disponibles
    */
   getTeamEmployees(teamId: string): Observable<any[]> {
     return this.http
-      .get<any[]>(`${this.apiUrl}/${teamId}/employees/`)
+      .get<ApiEmployeesListResponse>(`${this.apiUrl}/${teamId}/employees/`)
+      .pipe(
+        map((response) => response.results),
+        catchError(this.handleError)
+      );
+  }
+
+  /**
+   * GET /teams/{id}/members/ - Récupérer les membres actuels de l'équipe
+   * @param teamId - ID de l'équipe
+   * @returns Observable<TeamMembersResponse>
+   */
+  getTeamMembers(teamId: string): Observable<TeamMembersResponse> {
+    return this.http
+      .get<TeamMembersResponse>(`${this.apiUrl}/${teamId}/members/`)
       .pipe(catchError(this.handleError));
   }
 
@@ -177,17 +203,6 @@ export class TeamService {
         `${this.apiUrl}/${teamId}/add-member/`,
         memberData
       )
-      .pipe(catchError(this.handleError));
-  }
-
-  /**
-   * GET /teams/{id}/members/ - Récupérer les membres d'une équipe
-   * @param teamId - ID de l'équipe
-   * @returns Observable<TeamMembersResponse>
-   */
-  getTeamMembers(teamId: string): Observable<TeamMembersResponse> {
-    return this.http
-      .get<TeamMembersResponse>(`${this.apiUrl}/${teamId}/members/`)
       .pipe(catchError(this.handleError));
   }
 

@@ -1,4 +1,4 @@
-// src/app/services/user.service.ts - VERSION MISE À JOUR
+// src/app/services/user.service.ts - VERSION OPTIMISÉE
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
@@ -40,6 +40,17 @@ export interface ApiUsersListResponse {
 }
 
 /**
+ * Interface pour la réponse de liste paginée des employés
+ */
+export interface ApiEmployeesListResponse {
+  count: number;
+  next: boolean;
+  previous: boolean;
+  results: ApiUser[];
+  code: number;
+}
+
+/**
  * Interface pour créer un utilisateur
  */
 export interface CreateUserRequest {
@@ -58,7 +69,7 @@ export interface CreateUserRequest {
 }
 
 /**
- * Interface pour la mise à jour du profil utilisateur (via PUT)
+ * Interface pour la mise à jour du profil utilisateur
  */
 export interface UpdateUserProfileRequest {
   email: string;
@@ -70,7 +81,7 @@ export interface UpdateUserProfileRequest {
 }
 
 /**
- * Interface pour la mise à jour complète d'un utilisateur (via PUT pour admin)
+ * Interface pour la mise à jour complète d'un utilisateur (admin/manager)
  */
 export interface UpdateUserRequest {
   email?: string;
@@ -123,7 +134,7 @@ export class UserService {
   }
 
   /**
-   * PUT /users/{id}/ - Mettre à jour le profil utilisateur (pour profil personnel)
+   * PUT /users/{id}/ - Mettre à jour le profil utilisateur
    * @param userId - ID de l'utilisateur
    * @param userData - Données à mettre à jour
    * @returns Observable<User>
@@ -166,6 +177,20 @@ export class UserService {
       map((response) => response.results),
       catchError(this.handleError)
     );
+  }
+
+  /**
+   * GET /users/employees/ - Récupérer tous les employés créés par le manager connecté
+   * Ces employés sont disponibles pour être ajoutés aux équipes
+   * @returns Observable<ApiUser[]>
+   */
+  getManagerEmployees(): Observable<ApiUser[]> {
+    return this.http
+      .get<ApiEmployeesListResponse>(`${this.apiUrl}/employees/`)
+      .pipe(
+        map((response) => response.results),
+        catchError(this.handleError)
+      );
   }
 
   /**
@@ -236,12 +261,12 @@ export class UserService {
         errorMessage = 'Utilisateur non trouvé.';
       } else if (error.status === 400) {
         errorMessage = 'Données invalides.';
-      } else if (error.status === 500) {
-        errorMessage = 'Erreur serveur. Veuillez réessayer plus tard.';
+      } else {
+        errorMessage = `Erreur ${error.status}: ${error.message}`;
       }
     }
 
-    console.error('Erreur API:', errorMessage, error);
+    console.error('Erreur UserService:', errorMessage);
     return throwError(() => new Error(errorMessage));
   }
 }

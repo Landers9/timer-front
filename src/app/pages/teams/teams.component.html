@@ -301,7 +301,6 @@
           <button
             (click)="openAddMemberModal()"
             class="btn-primary btn-sm"
-            [disabled]="availableUsers().length === 0 || isModalLoading()"
           >
             <lucide-angular [img]="UserPlusIcon" class="w-4 h-4"></lucide-angular>
             <span>Ajouter un membre</span>
@@ -351,7 +350,7 @@
                 <td class="px-4 py-3">
                   <div class="flex items-center justify-end">
                     <button
-                      (click)="removeMemberFromTeam(member.id)"
+                      (click)="openRemoveMemberModal(member)"
                       class="btn-icon text-error hover:bg-red-50"
                       title="Retirer du groupe"
                       [disabled]="isModalLoading()"
@@ -389,7 +388,22 @@
       </button>
     </div>
 
-    <form (ngSubmit)="addMemberToTeam()" class="space-y-4">
+    <!-- Message si aucun employé disponible -->
+    <div *ngIf="availableUsers().length === 0" class="text-center py-8">
+      <p class="text-sm text-dark-600 mb-4">
+        Aucun employé disponible à ajouter à cette équipe.
+      </p>
+      <button
+        type="button"
+        (click)="showAddMemberModal.set(false)"
+        class="btn-secondary"
+      >
+        Fermer
+      </button>
+    </div>
+
+    <!-- Formulaire d'ajout -->
+    <form *ngIf="availableUsers().length > 0" (ngSubmit)="addMemberToTeam()" class="space-y-4">
       <div>
         <label class="input-label">Sélectionner un utilisateur</label>
         <select
@@ -420,5 +434,46 @@
         </button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- ========== REMOVE MEMBER CONFIRMATION MODAL ========== -->
+<div
+  *ngIf="showRemoveMemberModal()"
+  class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4"
+>
+  <div class="bg-white rounded-lg max-w-md w-full p-6">
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-xl font-semibold text-dark-900">Retirer un membre</h2>
+      <button (click)="showRemoveMemberModal.set(false)" class="btn-icon">
+        <lucide-angular [img]="XIcon" class="w-5 h-5"></lucide-angular>
+      </button>
+    </div>
+
+    <p class="text-sm text-dark-700 mb-6">
+      Êtes-vous sûr de vouloir retirer
+      <strong>{{ getUserFullName(memberToRemove()!) }}</strong>
+      de l'équipe <strong>{{ selectedTeam()?.name }}</strong> ?
+    </p>
+
+    <div class="flex gap-3">
+      <button
+        type="button"
+        (click)="showRemoveMemberModal.set(false)"
+        class="btn-secondary flex-1"
+        [disabled]="isModalLoading()"
+      >
+        Annuler
+      </button>
+      <button
+        type="button"
+        (click)="removeMemberFromTeam()"
+        class="bg-error text-white hover:bg-red-700 shadow-sm hover:shadow px-4 py-2 rounded text-sm font-medium transition-all duration-200 inline-flex items-center justify-center gap-2 flex-1"
+        [disabled]="isModalLoading()"
+      >
+        <span *ngIf="!isModalLoading()">Retirer</span>
+        <span *ngIf="isModalLoading()">Retrait...</span>
+      </button>
+    </div>
   </div>
 </div>

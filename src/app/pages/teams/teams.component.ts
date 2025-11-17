@@ -39,8 +39,9 @@ export class TeamsComponent implements OnInit {
 
   // Data
   teams = signal<Team[]>([]);
-  allUsers = signal<User[]>([]);
-  teamMembers = signal<TeamMember[]>([]);
+  managerEmployees = signal<User[]>([]); // Employés créés par le manager (disponibles pour ajout)
+  teamMembers = signal<TeamMember[]>([]); // Membres actuels de l'équipe sélectionnée
+  teamMemberCounts = signal<Map<string, number>>(new Map()); // Compte de membres par équipe
 
   // Loading states
   isLoading = signal(false);
@@ -55,20 +56,20 @@ export class TeamsComponent implements OnInit {
   showDeleteModal = signal(false);
   showDetailsModal = signal(false);
   showAddMemberModal = signal(false);
+  showRemoveMemberModal = signal(false); // Nouveau modal de confirmation
 
   // Form data
   formData = signal<{
     name?: string;
     description?: string;
-    memberIds?: string[];
   }>({
     name: '',
     description: '',
-    memberIds: [],
   });
 
   selectedTeam = signal<Team | null>(null);
   selectedUserId = signal<string | null>(null);
+  memberToRemove = signal<TeamMember | null>(null); // Membre à retirer
 
   // Current user
   currentUserId = signal<string | null>(null);
@@ -95,18 +96,22 @@ export class TeamsComponent implements OnInit {
     return filtered;
   });
 
-  // Available users (not in current team)
+  // Available users (employees not in current team)
   availableUsers = computed(() => {
     const team = this.selectedTeam();
-    if (!team) return this.allUsers();
+    if (!team) return this.managerEmployees();
 
-    return this.allUsers().filter((user) => !team.memberIds.includes(user.id));
+    // Filtrer les employés qui ne sont pas déjà membres
+    const currentMemberIds = this.teamMembers().map((m) => m.id);
+    return this.managerEmployees().filter(
+      (user) => !currentMemberIds.includes(user.id)
+    );
   });
 
   ngOnInit(): void {
     this.loadCurrentUser();
     this.loadTeams();
-    this.loadAllUsers();
+    this.loadManagerEmployees(); // Charger les employés du manager
   }
 
   // ========== DATA LOADING ==========
@@ -127,9 +132,12 @@ export class TeamsComponent implements OnInit {
           name: apiTeam.name,
           description: apiTeam.description,
           manager: apiTeam.manager,
-          memberIds: [], // Sera rempli si nécessaire
         }));
         this.teams.set(teams);
+
+        // Charger le nombre de membres pour chaque équipe
+        teams.forEach((team) => this.loadTeamMemberCount(team.id));
+
         this.isLoading.set(false);
       },
       error: (error) => {
@@ -139,10 +147,10 @@ export class TeamsComponent implements OnInit {
     });
   }
 
-  loadAllUsers(): void {
-    this.userService.getAllUsers().subscribe({
+  loadManagerEmployees(): void {
+    this.userService.getManagerEmployees().subscribe({
       next: (apiUsers: ApiUser[]) => {
-        const users: User[] = apiUsers.map((apiUser) => ({
+        const employees: User[] = apiUsers.map((apiUser) => ({
           id: apiUser.id,
           email: apiUser.email,
           first_name: apiUser.first_name,
@@ -160,10 +168,32 @@ export class TeamsComponent implements OnInit {
           hire_date: apiUser.hire_date,
           created_by: apiUser.created_by,
         }));
-        this.allUsers.set(users);
+        this.managerEmployees.set(employees);
       },
       error: (error) => {
-        console.error('Erreur lors du chargement des utilisateurs:', error);
+        console.error(
+          'Erreur lors du chargement des employés du manager:',
+          error
+        );
+      },
+    });
+  }
+
+  loadTeamMemberCount(teamId: string): void {
+    this.teamService.getTeamEmployees(teamId).subscribe({
+      next: (apiUsers: ApiUser[]) => {
+        // Mettre à jour le compte de membres pour cette équipe
+        this.teamMemberCounts.update((counts) => {
+          const newCounts = new Map(counts);
+          newCounts.set(teamId, apiUsers.length);
+          return newCounts;
+        });
+      },
+      error: (error) => {
+        console.error(
+          `Erreur lors du chargement du compte de membres pour l'équipe ${teamId}:`,
+          error
+        );
       },
     });
   }
@@ -172,6 +202,9 @@ export class TeamsComponent implements OnInit {
     this.isModalLoading.set(true);
     this.teamService.getTeamEmployees(teamId).subscribe({
       next: (apiUsers: ApiUser[]) => {
+        console.log('Team employees:', apiUsers);
+
+        // Mapper les utilisateurs vers TeamMember
         const members: TeamMember[] = apiUsers.map((apiUser) => ({
           id: apiUser.id,
           email: apiUser.email,
@@ -190,19 +223,21 @@ export class TeamsComponent implements OnInit {
           hire_date: apiUser.hire_date,
           created_by: apiUser.created_by,
         }));
+
         this.teamMembers.set(members);
 
-        // Update the team's memberIds
-        const team = this.selectedTeam();
-        if (team) {
-          team.memberIds = members.map((m) => m.id);
-          this.selectedTeam.set({ ...team });
-        }
+        // Mettre à jour aussi le compte
+        this.teamMemberCounts.update((counts) => {
+          const newCounts = new Map(counts);
+          newCounts.set(teamId, members.length);
+          return newCounts;
+        });
 
         this.isModalLoading.set(false);
       },
       error: (error) => {
         console.error('Erreur lors du chargement des membres:', error);
+        this.teamMembers.set([]);
         this.isModalLoading.set(false);
       },
     });
@@ -214,7 +249,6 @@ export class TeamsComponent implements OnInit {
     this.formData.set({
       name: '',
       description: '',
-      memberIds: [],
     });
     this.showCreateModal.set(true);
   }
@@ -224,7 +258,6 @@ export class TeamsComponent implements OnInit {
     this.formData.set({
       name: team.name,
       description: team.description,
-      memberIds: team.memberIds,
     });
     this.showEditModal.set(true);
   }
@@ -252,9 +285,10 @@ export class TeamsComponent implements OnInit {
     this.showDeleteModal.set(false);
     this.showDetailsModal.set(false);
     this.showAddMemberModal.set(false);
+    this.showRemoveMemberModal.set(false);
     this.selectedTeam.set(null);
     this.selectedUserId.set(null);
-    this.teamMembers.set([]);
+    this.memberToRemove.set(null);
   }
 
   // ========== CRUD OPERATIONS ==========
@@ -282,7 +316,6 @@ export class TeamsComponent implements OnInit {
           name: apiTeam.name,
           description: apiTeam.description,
           manager: apiTeam.manager,
-          memberIds: [],
         };
         this.teams.update((teams) => [...teams, newTeam]);
         this.isModalLoading.set(false);
@@ -350,6 +383,11 @@ export class TeamsComponent implements OnInit {
 
   // ========== MEMBER MANAGEMENT ==========
 
+  openRemoveMemberModal(member: TeamMember): void {
+    this.memberToRemove.set(member);
+    this.showRemoveMemberModal.set(true);
+  }
+
   addMemberToTeam(): void {
     const userId = this.selectedUserId();
     const team = this.selectedTeam();
@@ -373,18 +411,22 @@ export class TeamsComponent implements OnInit {
     });
   }
 
-  removeMemberFromTeam(userId: string): void {
+  removeMemberFromTeam(): void {
+    const member = this.memberToRemove();
     const team = this.selectedTeam();
-    if (!team) return;
+
+    if (!member || !team) return;
 
     this.isModalLoading.set(true);
 
     this.teamService
-      .removeMemberFromTeam(team.id, { user_id: userId })
+      .removeMemberFromTeam(team.id, { user_id: member.id })
       .subscribe({
         next: (response) => {
           // Recharger les membres de l'équipe
           this.loadTeamMembers(team.id);
+          this.showRemoveMemberModal.set(false);
+          this.memberToRemove.set(null);
           this.isModalLoading.set(false);
         },
         error: (error) => {
@@ -397,7 +439,7 @@ export class TeamsComponent implements OnInit {
   // ========== HELPERS ==========
 
   getMemberCount(team: Team): number {
-    return team.memberIds.length;
+    return this.teamMemberCounts().get(team.id) ?? 0;
   }
 
   getUserFullName(user: User | TeamMember): string {
