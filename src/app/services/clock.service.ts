@@ -118,8 +118,8 @@ export class ClockService {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           resolve({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
+            latitude: 6.366, //position.coords.latitude,
+            longitude: 2.429  // position.coords.longitude,
           });
         },
         (error) => {

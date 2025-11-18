@@ -1,14 +1,8 @@
 // src/app/pages/clock/clock.component.ts
-import { Component, OnInit, signal, computed } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import {
-  LucideAngularModule,
-  Clock as ClockIcon,
-  Plus,
-  Calendar,
-  TrendingUp,
-} from 'lucide-angular';
+import { LucideAngularModule, Clock as ClockIcon, Plus } from 'lucide-angular';
 import { ClockService, ApiClockRecord } from '../../services/clock.service';
 import { UserService } from '../../services/user.service';
 
@@ -69,7 +63,7 @@ export class ClockComponent implements OnInit {
   }
 
   /**
-   * Charger l'historique des clocks
+   * Charger l'historique des clocks depuis l'API
    */
   loadClockHistory(userId: string): void {
     this.isLoading.set(true);
@@ -108,108 +102,120 @@ export class ClockComponent implements OnInit {
       ? new Date(record.break_out_time)
       : null;
 
-    let totalHours = '0h 0m';
+    // Formater la date
+    const date = clockInTime
+      ? clockInTime.toLocaleDateString('fr-FR', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        })
+      : 'N/A';
+
+    // Formater les heures
+    const formatTime = (date: Date | null): string => {
+      if (!date) return '--:--';
+      return date.toLocaleTimeString('fr-FR', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    };
+
+    const clockInTimeStr = formatTime(clockInTime);
+    const clockOutTimeStr = formatTime(clockOutTime);
+    const breakInTimeStr = formatTime(breakInTime);
+    const breakOutTimeStr = formatTime(breakOutTime);
+
+    // Calculer les heures totales
+    let totalHours = '00:00';
     let status: 'completed' | 'in-progress' = 'in-progress';
 
     if (clockInTime && clockOutTime) {
-      const diffMs = clockOutTime.getTime() - clockInTime.getTime();
+      const totalMs = clockOutTime.getTime() - clockInTime.getTime();
 
-      // Soustraire le temps de pause si présent
+      // Soustraire la durée de pause si elle existe
       let breakMs = 0;
       if (breakInTime && breakOutTime) {
         breakMs = breakOutTime.getTime() - breakInTime.getTime();
       }
 
-      const totalMs = diffMs - breakMs;
-      const hours = Math.floor(totalMs / (1000 * 60 * 60));
-      const minutes = Math.floor((totalMs % (1000 * 60 * 60)) / (1000 * 60));
-      totalHours = `${hours}h ${minutes}m`;
+      const workMs = totalMs - breakMs;
+      const hours = Math.floor(workMs / (1000 * 60 * 60));
+      const minutes = Math.floor((workMs % (1000 * 60 * 60)) / (1000 * 60));
+
+      totalHours = `${String(hours).padStart(2, '0')}:${String(
+        minutes
+      ).padStart(2, '0')}`;
       status = 'completed';
+    } else if (clockInTime) {
+      // Calcul en temps réel pour les sessions en cours
+      const now = new Date();
+      let currentWorkMs = now.getTime() - clockInTime.getTime();
+
+      // Soustraire la pause en cours ou terminée
+      if (breakInTime) {
+        const breakEndTime = breakOutTime || now;
+        const breakMs = breakEndTime.getTime() - breakInTime.getTime();
+        currentWorkMs -= breakMs;
+      }
+
+      const hours = Math.floor(currentWorkMs / (1000 * 60 * 60));
+      const minutes = Math.floor(
+        (currentWorkMs % (1000 * 60 * 60)) / (1000 * 60)
+      );
+
+      totalHours = `${String(hours).padStart(2, '0')}:${String(
+        minutes
+      ).padStart(2, '0')}`;
+      status = 'in-progress';
     }
 
     return {
       id: record.id,
-      date: clockInTime ? clockInTime.toLocaleDateString('fr-FR') : 'N/A',
-      clockInTime: clockInTime ? this.formatTime(clockInTime) : 'N/A',
-      clockOutTime: clockOutTime ? this.formatTime(clockOutTime) : 'En cours',
-      breakInTime: breakInTime ? this.formatTime(breakInTime) : 'N/A',
-      breakOutTime: breakOutTime ? this.formatTime(breakOutTime) : 'N/A',
+      date,
+      clockInTime: clockInTimeStr,
+      clockOutTime: clockOutTimeStr,
+      breakInTime: breakInTimeStr,
+      breakOutTime: breakOutTimeStr,
       totalHours,
       status,
     };
   }
 
   /**
-   * Aller vers la page d'action clock
+   * Naviguer vers la page d'action de clock
    */
   goToClockAction(): void {
-    this.router.navigate(['/clock/action']);
+    this.router.navigate(['/clock-action']);
   }
 
   /**
-   * Retourner au dashboard
+   * Rafraîchir l'historique
    */
-  goBack(): void {
-    this.router.navigate(['/dashboard']);
-  }
-
-  /**
-   * Formater une date en heure (HH:MM)
-   */
-  private formatTime(date: Date): string {
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${hours}:${minutes}`;
-  }
-
-  /**
-   * Parser une date depuis une string
-   */
-  private parseDate(dateStr: string): Date {
-    const parts = dateStr.split('/');
-    if (parts.length === 3) {
-      return new Date(
-        parseInt(parts[2]),
-        parseInt(parts[1]) - 1,
-        parseInt(parts[0])
-      );
+  refreshHistory(): void {
+    const userId = this.currentUserId();
+    if (userId) {
+      this.loadClockHistory(userId);
     }
-    return new Date(dateStr);
   }
 
   /**
-   * Convertir "Xh Ym" en secondes
+   * Fermer le message d'erreur
    */
-  private parseTimeToSeconds(timeStr: string): number {
-    const hoursMatch = timeStr.match(/(\d+)h/);
-    const minutesMatch = timeStr.match(/(\d+)m/);
-
-    const hours = hoursMatch ? parseInt(hoursMatch[1]) : 0;
-    const minutes = minutesMatch ? parseInt(minutesMatch[1]) : 0;
-
-    return hours * 3600 + minutes * 60;
+  dismissError(): void {
+    this.errorMessage.set(null);
   }
 
   /**
-   * Convertir des secondes en "Xh Ym"
+   * Obtenir la classe CSS du badge de statut
    */
-  private formatSecondsToHours(seconds: number): string {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    return `${hours}h ${minutes}m`;
-  }
-
-  /**
-   * Obtenir la classe CSS pour le badge de statut
-   */
-  getStatusBadgeClass(status: string): string {
+  getStatusBadgeClass(status: 'completed' | 'in-progress'): string {
     return status === 'completed' ? 'badge-success' : 'badge-warning';
   }
 
   /**
    * Obtenir le label du statut
    */
-  getStatusLabel(status: string): string {
-    return status === 'completed' ? 'Terminé' : 'En cours';
+  getStatusLabel(status: 'completed' | 'in-progress'): string {
+    return status === 'completed' ? 'Completed' : 'In Progress';
   }
 }
