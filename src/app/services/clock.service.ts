@@ -1,7 +1,7 @@
 // src/app/services/clock.service.ts
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Observable, throwError } from 'rxjs';
+import { Observable, throwError, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 
@@ -59,6 +59,17 @@ export interface ClockErrorResponse {
   action_denied?: ClockAction;
 }
 
+/**
+ * Enum pour les états possibles du clock
+ */
+export enum ClockState {
+  NO_SESSION = 'NO_SESSION', // Pas de session active → Clock In
+  WORKING = 'WORKING', // Travail en cours, pas de pause → Clock Out + Break In
+  ON_BREAK = 'ON_BREAK', // En pause → Break Out uniquement
+  BACK_FROM_BREAK = 'BACK_FROM_BREAK', // Retour de pause → Clock Out SEULEMENT
+  DAY_COMPLETED = 'DAY_COMPLETED', // Journée terminée → Clock In (nouvelle session)
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -89,6 +100,56 @@ export class ClockService {
   }
 
   /**
+   * GET /users/clocks/current/ - Récupérer l'état actuel du clock de l'utilisateur
+   * @returns Observable<ApiClockRecord | null>
+   */
+  getCurrentClock(): Observable<ApiClockRecord | null> {
+    return this.http
+      .get<ApiClockRecord>(`${this.usersApiUrl}/clocks/current/`)
+      .pipe(
+        catchError((error: HttpErrorResponse) => {
+          // Si 404, pas de session active
+          if (error.status === 404) {
+            return of(null);
+          }
+          return this.handleError(error);
+        })
+      );
+  }
+
+  /**
+   * Déterminer l'état actuel du clock basé sur les champs
+   * @param record - Enregistrement clock ou null
+   * @returns ClockState
+   */
+  determineClockState(record: ApiClockRecord | null): ClockState {
+    // Pas de session ou pas d'enregistrement
+    if (!record || !record.clock_in_time) {
+      return ClockState.NO_SESSION;
+    }
+
+    // Journée terminée (clock_out fait)
+    if (record.clock_out_time) {
+      return ClockState.DAY_COMPLETED;
+    }
+
+    // Clock in fait, clock out pas fait
+    // Vérifier l'état de la pause
+    if (record.break_in_time && !record.break_out_time) {
+      // Pause en cours
+      return ClockState.ON_BREAK;
+    }
+
+    if (record.break_in_time && record.break_out_time) {
+      // Pause terminée, retour au travail
+      return ClockState.BACK_FROM_BREAK;
+    }
+
+    // Pas de pause, travail en cours
+    return ClockState.WORKING;
+  }
+
+  /**
    * GET /users/{userId}/clocks/ - Récupérer l'historique des clocks d'un utilisateur
    * @param userId - ID de l'utilisateur
    * @returns Observable<ApiClockRecord[]>
@@ -103,15 +164,13 @@ export class ClockService {
   }
 
   /**
-   * Obtenir la localisation actuelle de l'utilisateur
+   * Obtenir la position GPS actuelle
    * @returns Promise<ClockLocation>
    */
   getCurrentLocation(): Promise<ClockLocation> {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
-        reject(
-          new Error("La géolocalisation n'est pas supportée par ce navigateur")
-        );
+        reject(new Error("La géolocalisation n'est pas supportée"));
         return;
       }
 
@@ -123,10 +182,10 @@ export class ClockService {
           });
         },
         (error) => {
-          let message = "Impossible d'obtenir votre position";
+          let message = 'Erreur de géolocalisation';
           switch (error.code) {
             case error.PERMISSION_DENIED:
-              message = 'Autorisation de géolocalisation refusée';
+              message = 'Permission de géolocalisation refusée';
               break;
             case error.POSITION_UNAVAILABLE:
               message = 'Position non disponible';
@@ -140,7 +199,7 @@ export class ClockService {
         {
           enableHighAccuracy: true,
           timeout: 10000,
-          maximumAge: 0,
+          maximumAge: 60000,
         }
       );
     });
@@ -148,38 +207,30 @@ export class ClockService {
 
   /**
    * Gestion des erreurs HTTP
-   * @param error - Erreur HTTP
-   * @returns Observable avec le message d'erreur
    */
-  private handleError(error: HttpErrorResponse): Observable<never> {
+  private handleError = (error: HttpErrorResponse): Observable<never> => {
     let errorMessage = 'Une erreur est survenue';
 
     if (error.error instanceof ErrorEvent) {
       // Erreur côté client
-      errorMessage = `Erreur: ${error.error.message}`;
+      errorMessage = error.error.message;
     } else {
       // Erreur côté serveur
-      const errorResponse = error.error as ClockErrorResponse;
-
-      if (errorResponse?.detail) {
-        errorMessage = errorResponse.detail;
-
-        // Ajouter des informations supplémentaires si disponibles
-        if (errorResponse.distance !== undefined) {
-          errorMessage += ` (Distance: ${errorResponse.distance.toFixed(0)}m)`;
-        }
-      } else if (error.status === 401) {
-        errorMessage = 'Session expirée. Veuillez vous reconnecter.';
-      } else if (error.status === 403) {
-        errorMessage = "Vous n'avez pas les droits nécessaires.";
+      if (error.error?.detail) {
+        errorMessage = error.error.detail;
       } else if (error.status === 400) {
-        errorMessage = 'Requête invalide.';
-      } else if (error.status === 500) {
-        errorMessage = 'Erreur serveur. Veuillez réessayer plus tard.';
+        errorMessage = 'Requête invalide';
+      } else if (error.status === 401) {
+        errorMessage = 'Non autorisé';
+      } else if (error.status === 403) {
+        errorMessage = 'Accès refusé';
+      } else if (error.status === 404) {
+        errorMessage = 'Ressource non trouvée';
+      } else if (error.status >= 500) {
+        errorMessage = 'Erreur serveur';
       }
     }
 
-    console.error('Erreur Clock API:', errorMessage, error);
     return throwError(() => new Error(errorMessage));
-  }
+  };
 }

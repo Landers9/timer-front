@@ -18,6 +18,7 @@ import {
   ClockAction,
   ClockLocation,
   ApiClockRecord,
+  ClockState,
 } from '../../services/clock.service';
 import { UserService } from '../../services/user.service';
 
@@ -59,6 +60,27 @@ export class ClockActionComponent implements OnInit, OnDestroy {
   errorMessage = signal<string | null>(null);
   currentUserId = signal<string | null>(null);
 
+  // NOUVEAU: Signal pour l'état du clock
+  clockState = signal<ClockState>(ClockState.NO_SESSION);
+
+  // NOUVEAU: Computed pour savoir si le break est disponible
+  // Le break n'est disponible que si on est en état WORKING (pas encore de pause)
+  canStartBreak = computed(() => {
+    return this.clockState() === ClockState.WORKING;
+  });
+
+  // NOUVEAU: Computed pour savoir si on peut faire un break_out
+  canEndBreak = computed(() => {
+    return this.clockState() === ClockState.ON_BREAK;
+  });
+
+  // NOUVEAU: Computed pour savoir si la section break doit être affichée
+  // Afficher si: WORKING (peut démarrer une pause) ou ON_BREAK (en pause)
+  showBreakSection = computed(() => {
+    const state = this.clockState();
+    return state === ClockState.WORKING || state === ClockState.ON_BREAK;
+  });
+
   // Computed displays
   workDisplay = computed(() => this.formatTime(this.workTime()));
   breakDisplay = computed(() => this.formatTime(this.breakTime()));
@@ -79,9 +101,19 @@ export class ClockActionComponent implements OnInit, OnDestroy {
   });
 
   statusMessage = computed(() => {
-    if (this.isWorkActive()) return "You're on the clock.";
-    if (this.isBreakActive()) return "You're on break.";
-    return "You're off the clock.";
+    const state = this.clockState();
+    switch (state) {
+      case ClockState.WORKING:
+        return "You're on the clock.";
+      case ClockState.ON_BREAK:
+        return "You're on break.";
+      case ClockState.BACK_FROM_BREAK:
+        return "You're back from break.";
+      case ClockState.DAY_COMPLETED:
+        return 'Day completed.';
+      default:
+        return "You're off the clock.";
+    }
   });
 
   private timeInterval: any;
@@ -106,7 +138,7 @@ export class ClockActionComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    this.loadCurrentUser();
+    this.loadCurrentClockStatus();
     this.updateTimers();
     this.timeInterval = setInterval(() => this.updateTimers(), 1000);
   }
@@ -117,49 +149,52 @@ export class ClockActionComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Charger l'utilisateur connecté
+   * Charger le statut actuel du clock via la nouvelle API
    */
-  private loadCurrentUser(): void {
-    this.userService.getCurrentUser().subscribe({
-      next: (user) => {
-        this.currentUserId.set(user.id);
-        this.loadTodayClockStatus(user.id);
+  private loadCurrentClockStatus(): void {
+    this.isLoading.set(true);
+
+    this.clockService.getCurrentClock().subscribe({
+      next: (record) => {
+        this.isLoading.set(false);
+
+        if (record) {
+          this.sessionData.lastClockRecord = record;
+          this.syncStateWithApiRecord(record);
+        } else {
+          // Pas de session active
+          this.clockState.set(ClockState.NO_SESSION);
+          this.resetLocalState();
+        }
       },
       error: (error) => {
-        console.error("Erreur lors du chargement de l'utilisateur:", error);
-        this.errorMessage.set(
-          'Impossible de charger les informations utilisateur'
-        );
+        console.error('Erreur chargement statut clock:', error);
+        this.isLoading.set(false);
+        // En cas d'erreur, essayer de charger depuis localStorage
+        this.loadSessionData();
       },
     });
   }
 
   /**
-   * Charger le statut du clock d'aujourd'hui depuis l'API
+   * Réinitialiser l'état local
    */
-  private loadTodayClockStatus(userId: string): void {
-    this.clockService.getUserClocks(userId).subscribe({
-      next: (records) => {
-        // Récupérer le dernier enregistrement d'aujourd'hui
-        const today = new Date().toISOString().split('T')[0];
-        const todayRecords = records.filter((r) => {
-          if (!r.clock_in_time) return false;
-          const recordDate = new Date(r.clock_in_time)
-            .toISOString()
-            .split('T')[0];
-          return recordDate === today;
-        });
-
-        if (todayRecords.length > 0) {
-          const lastRecord = todayRecords[0];
-          this.sessionData.lastClockRecord = lastRecord;
-          this.syncStateWithApiRecord(lastRecord);
-        }
-      },
-      error: (error) => {
-        console.error('Erreur chargement statut clock:', error);
-      },
-    });
+  private resetLocalState(): void {
+    this.isWorkActive.set(false);
+    this.isBreakActive.set(false);
+    this.workTime.set(0);
+    this.breakTime.set(0);
+    this.sessionData = {
+      workStartTime: null,
+      breakStartTime: null,
+      totalWorkSeconds: 0,
+      totalBreakSeconds: 0,
+      isWorkActive: false,
+      isBreakActive: false,
+      sessions: [],
+      lastClockRecord: null,
+    };
+    this.saveSessionData();
   }
 
   /**
@@ -168,16 +203,66 @@ export class ClockActionComponent implements OnInit, OnDestroy {
   private syncStateWithApiRecord(record: ApiClockRecord): void {
     const now = Date.now();
 
-    // Clock In actif (pas de clock out)
-    if (record.clock_in_time && !record.clock_out_time) {
-      const clockInTime = new Date(record.clock_in_time).getTime();
+    // Déterminer l'état via le service
+    const state = this.clockService.determineClockState(record);
+    this.clockState.set(state);
 
-      // Pause active (break_in sans break_out)
-      if (record.break_in_time && !record.break_out_time) {
-        const breakInTime = new Date(record.break_in_time).getTime();
+    switch (state) {
+      case ClockState.NO_SESSION:
+      case ClockState.DAY_COMPLETED:
+        // Pas de session active ou journée terminée
+        this.isWorkActive.set(false);
+        this.isBreakActive.set(false);
+        this.sessionData.isWorkActive = false;
+        this.sessionData.isBreakActive = false;
+        this.sessionData.workStartTime = null;
+        this.sessionData.breakStartTime = null;
+
+        if (
+          state === ClockState.DAY_COMPLETED &&
+          record.clock_in_time &&
+          record.clock_out_time
+        ) {
+          // Calculer les temps totaux de la journée
+          const clockInTime = new Date(record.clock_in_time).getTime();
+          const clockOutTime = new Date(record.clock_out_time).getTime();
+
+          let totalWork = Math.floor((clockOutTime - clockInTime) / 1000);
+          let totalBreak = 0;
+
+          if (record.break_in_time && record.break_out_time) {
+            const breakInTime = new Date(record.break_in_time).getTime();
+            const breakOutTime = new Date(record.break_out_time).getTime();
+            totalBreak = Math.floor((breakOutTime - breakInTime) / 1000);
+            totalWork -= totalBreak;
+          }
+
+          this.sessionData.totalWorkSeconds = totalWork;
+          this.sessionData.totalBreakSeconds = totalBreak;
+          this.workTime.set(totalWork);
+          this.breakTime.set(totalBreak);
+        }
+        break;
+
+      case ClockState.WORKING:
+        // Travail en cours, pas de pause
+        const clockInTime = new Date(record.clock_in_time!).getTime();
+        this.sessionData.workStartTime = clockInTime;
+        this.sessionData.totalWorkSeconds = 0;
+        this.sessionData.totalBreakSeconds = 0;
+        this.isWorkActive.set(true);
+        this.isBreakActive.set(false);
+        this.sessionData.isWorkActive = true;
+        this.sessionData.isBreakActive = false;
+        break;
+
+      case ClockState.ON_BREAK:
+        // En pause
+        const clockInTimeBreak = new Date(record.clock_in_time!).getTime();
+        const breakInTime = new Date(record.break_in_time!).getTime();
 
         // Calculer le temps de travail jusqu'au début de la pause
-        const workSeconds = Math.floor((breakInTime - clockInTime) / 1000);
+        const workSeconds = Math.floor((breakInTime - clockInTimeBreak) / 1000);
         this.sessionData.totalWorkSeconds = workSeconds;
         this.workTime.set(workSeconds);
 
@@ -187,65 +272,33 @@ export class ClockActionComponent implements OnInit, OnDestroy {
         this.isWorkActive.set(false);
         this.sessionData.isBreakActive = true;
         this.sessionData.isWorkActive = false;
-      }
-      // Travail actif (pas de pause ou pause terminée)
-      else {
-        let workStartTime = clockInTime;
-        let totalBreakSeconds = 0;
+        break;
 
-        // Si une pause a été faite et terminée
-        if (record.break_in_time && record.break_out_time) {
-          const breakInTime = new Date(record.break_in_time).getTime();
-          const breakOutTime = new Date(record.break_out_time).getTime();
+      case ClockState.BACK_FROM_BREAK:
+        // Retour de pause - travail en cours, plus de break possible
+        const clockInTimeBack = new Date(record.clock_in_time!).getTime();
+        const breakInTimeBack = new Date(record.break_in_time!).getTime();
+        const breakOutTime = new Date(record.break_out_time!).getTime();
 
-          totalBreakSeconds = Math.floor((breakOutTime - breakInTime) / 1000);
-          workStartTime = breakOutTime; // Reprendre depuis la fin de la pause
+        const totalBreakSeconds = Math.floor(
+          (breakOutTime - breakInTimeBack) / 1000
+        );
+        const workBeforeBreak = Math.floor(
+          (breakInTimeBack - clockInTimeBack) / 1000
+        );
 
-          // Calculer le travail avant la pause
-          const workBeforeBreak = Math.floor(
-            (breakInTime - clockInTime) / 1000
-          );
-          this.sessionData.totalWorkSeconds = workBeforeBreak;
-        } else {
-          this.sessionData.totalWorkSeconds = 0;
-        }
-
-        this.sessionData.workStartTime = workStartTime;
         this.sessionData.totalBreakSeconds = totalBreakSeconds;
         this.breakTime.set(totalBreakSeconds);
+
+        // Reprendre depuis la fin de la pause
+        this.sessionData.workStartTime = breakOutTime;
+        this.sessionData.totalWorkSeconds = workBeforeBreak;
+
         this.isWorkActive.set(true);
         this.isBreakActive.set(false);
         this.sessionData.isWorkActive = true;
         this.sessionData.isBreakActive = false;
-      }
-    }
-    // Clock Out fait (journée terminée)
-    else if (record.clock_out_time) {
-      this.isWorkActive.set(false);
-      this.isBreakActive.set(false);
-      this.sessionData.isWorkActive = false;
-      this.sessionData.isBreakActive = false;
-      this.sessionData.workStartTime = null;
-      this.sessionData.breakStartTime = null;
-
-      // Calculer les temps totaux
-      const clockInTime = new Date(record.clock_in_time!).getTime();
-      const clockOutTime = new Date(record.clock_out_time).getTime();
-
-      let totalWork = Math.floor((clockOutTime - clockInTime) / 1000);
-      let totalBreak = 0;
-
-      if (record.break_in_time && record.break_out_time) {
-        const breakInTime = new Date(record.break_in_time).getTime();
-        const breakOutTime = new Date(record.break_out_time).getTime();
-        totalBreak = Math.floor((breakOutTime - breakInTime) / 1000);
-        totalWork -= totalBreak; // Soustraire la pause du temps de travail
-      }
-
-      this.sessionData.totalWorkSeconds = totalWork;
-      this.sessionData.totalBreakSeconds = totalBreak;
-      this.workTime.set(totalWork);
-      this.breakTime.set(totalBreak);
+        break;
     }
 
     this.saveSessionData();
@@ -277,15 +330,21 @@ export class ClockActionComponent implements OnInit, OnDestroy {
     this.currentTime.set(`${hours}:${minutes}`);
 
     const timestamp = Date.now();
+    const state = this.clockState();
 
-    if (this.isWorkActive() && this.sessionData.workStartTime) {
+    // Mise à jour du timer de travail
+    if (
+      (state === ClockState.WORKING || state === ClockState.BACK_FROM_BREAK) &&
+      this.sessionData.workStartTime
+    ) {
       const elapsed = Math.floor(
         (timestamp - this.sessionData.workStartTime) / 1000
       );
       this.workTime.set(this.sessionData.totalWorkSeconds + elapsed);
     }
 
-    if (this.isBreakActive() && this.sessionData.breakStartTime) {
+    // Mise à jour du timer de pause
+    if (state === ClockState.ON_BREAK && this.sessionData.breakStartTime) {
       const elapsed = Math.floor(
         (timestamp - this.sessionData.breakStartTime) / 1000
       );
@@ -355,20 +414,48 @@ export class ClockActionComponent implements OnInit, OnDestroy {
   toggleWork() {
     if (this.isLoading()) return;
 
-    if (this.isWorkActive()) {
+    const state = this.clockState();
+
+    // Si on est en pause, on ne peut pas faire clock_out directement
+    if (state === ClockState.ON_BREAK) {
+      this.errorMessage.set(
+        'Veuillez terminer votre pause avant de pointer la sortie.'
+      );
+      return;
+    }
+
+    // Si on travaille (WORKING ou BACK_FROM_BREAK), on fait clock_out
+    if (state === ClockState.WORKING || state === ClockState.BACK_FROM_BREAK) {
       this.performClockAction('clock_out');
-    } else {
+    }
+    // Sinon (NO_SESSION ou DAY_COMPLETED), on fait clock_in
+    else {
       this.performClockAction('clock_in');
     }
   }
 
   toggleBreak() {
-    if (!this.isWorkActive() || this.isLoading()) return;
+    if (this.isLoading()) return;
 
-    if (this.isBreakActive()) {
+    const state = this.clockState();
+
+    // Vérifier si le break est possible
+    if (state === ClockState.ON_BREAK) {
+      // Terminer la pause
       this.performClockAction('break_out');
-    } else {
+    } else if (state === ClockState.WORKING) {
+      // Démarrer une pause (seulement si pas encore de pause)
       this.performClockAction('break_in');
+    } else if (state === ClockState.BACK_FROM_BREAK) {
+      // Déjà eu une pause, ne rien faire
+      this.errorMessage.set('Une seule pause est autorisée par session.');
+      setTimeout(() => {
+        if (
+          this.errorMessage() === 'Une seule pause est autorisée par session.'
+        ) {
+          this.errorMessage.set(null);
+        }
+      }, 3000);
     }
   }
 
@@ -382,6 +469,7 @@ export class ClockActionComponent implements OnInit, OnDestroy {
       this.breakTime.set(0);
       this.isWorkActive.set(false);
       this.isBreakActive.set(false);
+      this.clockState.set(ClockState.NO_SESSION);
       this.sessionData = {
         workStartTime: null,
         breakStartTime: null,

@@ -4,7 +4,9 @@
   <!-- Header -->
   <div class="flex items-center justify-between">
     <div>
-      <h1 class="text-2xl font-semibold text-dark-900">Historique des pointages</h1>
+      <h1 class="text-2xl font-semibold text-dark-900">
+        Historique des pointages
+      </h1>
       <p class="text-sm text-dark-600 mt-1">
         {{ clockHistory().length }} session(s)
       </p>
@@ -18,96 +20,125 @@
 
   <!-- Error Message -->
   @if (errorMessage()) {
-    <div class="bg-error bg-opacity-10 border border-error text-error px-4 py-3 rounded">
-      {{ errorMessage() }}
-    </div>
+  <div
+    class="bg-error bg-opacity-10 border border-error text-error px-4 py-3 rounded"
+  >
+    {{ errorMessage() }}
+  </div>
   }
 
   <!-- Loading State -->
   @if (isLoading()) {
-    <div class="flex items-center justify-center py-12">
-      <div class="text-center">
-        <div class="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-        <p class="text-sm text-dark-600">Chargement...</p>
-      </div>
+  <div class="flex items-center justify-center py-12">
+    <div class="text-center">
+      <div
+        class="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"
+      ></div>
+      <p class="text-sm text-dark-600">Chargement...</p>
     </div>
-  }
-
-  @if (!isLoading()) {
-    <!-- Clock History Table -->
-    <div class="bg-white rounded border border-gray-200 overflow-hidden">
-      <div class="overflow-x-auto">
-        <table class="w-full">
-          <thead class="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th class="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">
-                Date
-              </th>
-              <th class="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">
-                Arrivée
-              </th>
-              <th class="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">
-                Départ
-              </th>
-              <th class="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">
-                Pause début
-              </th>
-              <th class="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">
-                Pause fin
-              </th>
-              <th class="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">
-                Total
-              </th>
-              <th class="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider">
-                Statut
-              </th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-200">
-            @for (record of clockHistory(); track record.id) {
-              <tr class="hover:bg-gray-50 transition-colors">
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="text-sm font-medium text-dark-900">{{ record.date }}</div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="text-sm text-dark-700">{{ record.clockInTime }}</div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="text-sm text-dark-700">{{ record.clockOutTime }}</div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="text-sm text-dark-700">{{ record.breakInTime }}</div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="text-sm text-dark-700">{{ record.breakOutTime }}</div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="text-sm font-medium text-dark-900">{{ record.totalHours }}</div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <span [class]="'badge ' + getStatusBadgeClass(record.status)">
-                    {{ getStatusLabel(record.status) }}
-                  </span>
-                </td>
-              </tr>
-            } @empty {
-              <tr>
-                <td colspan="7" class="px-6 py-12 text-center">
-                  <div class="flex flex-col items-center gap-3">
-                    <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
-                      <lucide-angular [img]="ClockIcon" class="w-8 h-8 text-gray-400"></lucide-angular>
-                    </div>
-                    <div>
-                      <p class="text-dark-900 font-medium mb-1">Aucun pointage enregistré</p>
-                      <p class="text-sm text-dark-600">Cliquez sur "Pointer" pour commencer</p>
-                    </div>
-                  </div>
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
+  </div>
+  } @if (!isLoading()) {
+  <!-- Clock History Table -->
+  <div class="bg-white rounded border border-gray-200 overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full">
+        <thead class="bg-gray-50 border-b border-gray-200">
+          <tr>
+            <th
+              class="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider"
+            >
+              Date
+            </th>
+            <th
+              class="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider"
+            >
+              Départ
+            </th>
+            <th
+              class="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider"
+            >
+              Arrivée
+            </th>
+            <th
+              class="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider"
+            >
+              Pause début
+            </th>
+            <th
+              class="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider"
+            >
+              Pause fin
+            </th>
+            <th
+              class="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider"
+            >
+              Total
+            </th>
+            <th
+              class="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase tracking-wider"
+            >
+              Statut
+            </th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200">
+          @for (record of clockHistory(); track record.id) {
+          <tr class="hover:bg-gray-50 transition-colors">
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="text-sm font-medium text-dark-900">
+                {{ record.date }}
+              </div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="text-sm text-dark-700">{{ record.clockInTime }}</div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="text-sm text-dark-700">{{ record.clockOutTime }}</div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="text-sm text-dark-700">{{ record.breakInTime }}</div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="text-sm text-dark-700">{{ record.breakOutTime }}</div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="text-sm font-medium text-dark-900">
+                {{ record.totalHours }}
+              </div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <span [class]="'badge ' + getStatusBadgeClass(record.status)">
+                {{ getStatusLabel(record.status) }}
+              </span>
+            </td>
+          </tr>
+          } @empty {
+          <tr>
+            <td colspan="7" class="px-6 py-12 text-center">
+              <div class="flex flex-col items-center gap-3">
+                <div
+                  class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center"
+                >
+                  <lucide-angular
+                    [img]="ClockIcon"
+                    class="w-8 h-8 text-gray-400"
+                  ></lucide-angular>
+                </div>
+                <div>
+                  <p class="text-dark-900 font-medium mb-1">
+                    Aucun pointage enregistré
+                  </p>
+                  <p class="text-sm text-dark-600">
+                    Cliquez sur "Pointer" pour commencer
+                  </p>
+                </div>
+              </div>
+            </td>
+          </tr>
+          }
+        </tbody>
+      </table>
     </div>
+  </div>
   }
 </div>

@@ -64,7 +64,7 @@
 
         <button
           (click)="toggleWork()"
-          [disabled]="isLoading()"
+          [disabled]="isLoading() || isBreakActive()"
           [class]="
             isWorkActive()
               ? 'w-full px-8 py-3 bg-error text-white font-semibold rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
@@ -81,8 +81,10 @@
         </button>
       </div>
 
-      <!-- Break Control (Only shown when working) -->
-      @if (isWorkActive()) {
+      <!-- Break Control - MODIFIÉ: Afficher seulement si showBreakSection() est true -->
+      <!-- showBreakSection() = true si état WORKING ou ON_BREAK -->
+      <!-- Après break_out (état BACK_FROM_BREAK), cette section ne s'affiche plus -->
+      @if (showBreakSection()) {
       <div class="text-center space-y-4 pt-4 border-t border-dark-700">
         <div class="flex items-center justify-center gap-4">
           <div
