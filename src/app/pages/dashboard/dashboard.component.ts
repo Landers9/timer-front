@@ -8,7 +8,6 @@ import {
   ViewChild,
   ElementRef,
   AfterViewInit,
-  effect,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -22,39 +21,33 @@ import {
 import { Chart, ChartConfiguration } from 'chart.js';
 import { AuthService } from '../../services/auth.service';
 import { ChartService } from '../../services/chart.service';
+import { TeamService, ApiTeam } from '../../services/team.service';
+import { UserService, ApiUser } from '../../services/user.service';
+import {
+  StatsService,
+  KPIResponse,
+  KPIParams,
+  FilterType,
+  PeriodType,
+  WorkStats,
+  BreakStats,
+  ChartData,
+} from '../../services/stats.service';
 
-type FilterType = 'teams' | 'employees';
-type PeriodType = 'day' | 'week' | 'month' | 'year';
 type DataViewType = 'work' | 'break';
 
 interface Team {
-  id: number;
+  id: string;
   name: string;
 }
 
 interface Employee {
-  id: number;
+  id: string;
   firstName: string;
   lastName: string;
 }
 
 type DisplayEntity = Team | Employee;
-
-interface DashboardStats {
-  totalHours: number;
-  avgHoursPerDay: number;
-  attendanceRate: number;
-  avgArrivalTime: string;
-  trend: 'up' | 'down' | 'stable';
-}
-
-interface BreakStats {
-  totalBreakHours: number;
-  avgBreakPerDay: number;
-  breakComplianceRate: number;
-  avgBreakTime: string;
-  trend: 'up' | 'down' | 'stable';
-}
 
 @Component({
   selector: 'app-dashboard',
@@ -100,7 +93,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
       this.currentUser()?.role === 'MANAGER' ||
       this.currentUser()?.role === 'ADMIN'
   );
-  
+
   userName = computed(() => {
     const user = this.currentUser();
     return user ? `${user.first_name} ${user.last_name}` : '';
@@ -108,7 +101,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // Filters
   filterType = signal<FilterType>('teams');
-  selectedEntityId = signal<number | null>(null);
+  selectedEntityId = signal<string | null>(null);
   startDate = signal<string>('');
   endDate = signal<string>('');
 
@@ -119,38 +112,34 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   // Data view toggle (work or break)
   dataView = signal<DataViewType>('work');
 
-  // Data
-  teams = signal<Team[]>([
-    { id: 1, name: 'Équipe Développement' },
-    { id: 2, name: 'Équipe Marketing' },
-    { id: 3, name: 'Équipe Ventes' },
-    { id: 4, name: 'Équipe Support' },
-  ]);
+  // Loading state
+  isLoading = signal(false);
+  errorMessage = signal<string | null>(null);
 
-  employees = signal<Employee[]>([
-    { id: 1, firstName: 'Jean', lastName: 'Dupont' },
-    { id: 2, firstName: 'Marie', lastName: 'Martin' },
-    { id: 3, firstName: 'Pierre', lastName: 'Bernard' },
-    { id: 4, firstName: 'Sophie', lastName: 'Dubois' },
-    { id: 5, firstName: 'Luc', lastName: 'Moreau' },
-  ]);
+  // Data from API
+  teams = signal<Team[]>([]);
+  employees = signal<Employee[]>([]);
 
-  // Stats
-  stats = signal<DashboardStats>({
-    totalHours: 156.5,
-    avgHoursPerDay: 7.8,
-    attendanceRate: 95.5,
-    avgArrivalTime: '08:42',
-    trend: 'up',
+  // Stats from API
+  stats = signal<WorkStats>({
+    totalHours: 0,
+    avgHoursPerDay: 0,
+    attendanceRate: 0,
+    avgArrivalTime: '00:00',
+    trend: 'stable',
   });
 
   breakStats = signal<BreakStats>({
-    totalBreakHours: 25.5,
-    avgBreakPerDay: 1.2,
-    breakComplianceRate: 98,
-    avgBreakTime: '12:30',
+    totalBreakHours: 0,
+    avgBreakPerDay: 0,
+    breakComplianceRate: 0,
+    avgBreakTime: '00:00',
     trend: 'stable',
   });
+
+  // Chart data from API
+  hoursChartData = signal<ChartData>({ labels: [], data: [] });
+  attendanceChartData = signal<ChartData>({ labels: [], data: [] });
 
   // Computed stats based on view
   currentStats = computed(() => {
@@ -183,62 +172,155 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // Computed entities list based on filter type
   entitiesList = computed<DisplayEntity[]>(() => {
-    return this.filterType() === 'teams'
-      ? (this.teams() as DisplayEntity[])
-      : (this.employees() as DisplayEntity[]);
+    return this.filterType() === 'teams' ? this.teams() : this.employees();
   });
 
   constructor(
     private authService: AuthService,
-    private chartService: ChartService
+    private chartService: ChartService,
+    private statsService: StatsService,
+    private teamService: TeamService,
+    private userService: UserService
   ) {
-    // Initialize dates (last 30 days by default)
-    const today = new Date();
-    const thirtyDaysAgo = new Date(today);
-    thirtyDaysAgo.setDate(today.getDate() - 30);
-
-    this.endDate.set(today.toISOString().split('T')[0]);
-    this.startDate.set(thirtyDaysAgo.toISOString().split('T')[0]);
-
-    // Effect to reload data when filters change
-    effect(() => {
-      const filterType = this.filterType();
-      const entityId = this.selectedEntityId();
-      const start = this.startDate();
-      const end = this.endDate();
-
-      console.log('Filters changed:', { filterType, entityId, start, end });
-      this.loadData();
-    });
-
-    // Effect to update charts when period or view changes
-    effect(() => {
-      const hoursPeriod = this.hoursPeriod();
-      const attendancePeriod = this.attendancePeriod();
-      const dataView = this.dataView();
-
-      if (this.hoursChart) {
-        this.updateHoursChart();
-      }
-      if (this.attendanceChart) {
-        this.updateAttendanceChart();
-      }
-    });
+    // Pas d'effect ici pour éviter les boucles infinies
+    // Les rechargements sont déclenchés par les handlers explicitement
   }
 
   ngOnInit(): void {
-    this.loadData();
+    // Initialiser les dates par défaut (30 derniers jours)
+    const defaultDates = this.statsService.getDefaultDateRange();
+    this.startDate.set(defaultDates.start_date);
+    this.endDate.set(defaultDates.end_date);
+
+    // Charger les équipes et employés
+    this.loadTeams();
+    this.loadEmployees();
   }
 
   ngAfterViewInit(): void {
-    setTimeout(() => {
-      this.initializeCharts();
-    }, 100);
+    this.initializeCharts();
+    // Charger les KPIs après l'initialisation des graphiques
+    this.loadKPIs();
   }
 
   ngOnDestroy(): void {
     this.chartService.destroyChart(this.hoursChart);
     this.chartService.destroyChart(this.attendanceChart);
+  }
+
+  /**
+   * Charger les équipes depuis l'API
+   */
+  private loadTeams(): void {
+    this.teamService.getAllTeams().subscribe({
+      next: (apiTeams: ApiTeam[]) => {
+        const teams: Team[] = apiTeams.map((t) => ({
+          id: t.id,
+          name: t.name,
+        }));
+        this.teams.set(teams);
+      },
+      error: (error) => {
+        console.error('Erreur chargement équipes:', error);
+      },
+    });
+  }
+
+  /**
+   * Charger les employés depuis l'API
+   */
+  private loadEmployees(): void {
+    this.userService.getAllUsers().subscribe({
+      next: (apiUsers: ApiUser[]) => {
+        const employees: Employee[] = apiUsers.map((u) => ({
+          id: u.id,
+          firstName: u.first_name,
+          lastName: u.last_name,
+        }));
+        this.employees.set(employees);
+      },
+      error: (error) => {
+        console.error('Erreur chargement employés:', error);
+      },
+    });
+  }
+
+  /**
+   * Charger les KPIs depuis l'API
+   */
+  loadKPIs(): void {
+    this.isLoading.set(true);
+    this.errorMessage.set(null);
+
+    const params: KPIParams = {
+      filter_type: this.filterType(),
+      period: this.hoursPeriod(),
+    };
+
+    // Ajouter entity_id si sélectionné
+    const entityId = this.selectedEntityId();
+    if (entityId) {
+      params.entity_id = entityId;
+    }
+
+    // Ajouter les dates
+    const startDate = this.startDate();
+    const endDate = this.endDate();
+    if (startDate) {
+      params.start_date = startDate;
+    }
+    if (endDate) {
+      params.end_date = endDate;
+    }
+
+    this.statsService.getKPIs(params).subscribe({
+      next: (response: KPIResponse) => {
+        // Mettre à jour les statistiques
+        this.stats.set(response.work);
+        this.breakStats.set(response.break_stats);
+
+        // Mettre à jour les données des graphiques
+        this.hoursChartData.set(response.hours_chart);
+        this.attendanceChartData.set(response.attendance_chart);
+
+        // Mettre à jour les graphiques
+        this.updateHoursChart();
+        this.updateAttendanceChart();
+
+        this.isLoading.set(false);
+      },
+      error: (error) => {
+        console.error('Erreur chargement KPIs:', error);
+        this.errorMessage.set(error.message);
+        this.isLoading.set(false);
+      },
+    });
+  }
+
+  // Handle filter type change
+  onFilterTypeChange(value: string): void {
+    this.filterType.set(value as FilterType);
+    this.selectedEntityId.set(null); // Reset entity selection
+    this.loadKPIs();
+  }
+
+  // Handle entity selection change
+  onEntityChange(value: string): void {
+    this.selectedEntityId.set(value || null);
+    this.loadKPIs();
+  }
+
+  // Handle period change for hours chart
+  onHoursPeriodChange(value: string): void {
+    this.hoursPeriod.set(value as PeriodType);
+    this.loadKPIs();
+  }
+
+  // Handle period change for attendance chart
+  onAttendancePeriodChange(value: string): void {
+    this.attendancePeriod.set(value as PeriodType);
+    // Recharger les données avec la nouvelle période
+    this.loadKPIs();
   }
 
   // Helper to get display name for an entity
@@ -250,34 +332,23 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  // Clock in/out
-  toggleClock(): void {
-    this.isTracking.update((val) => !val);
-    this.lastClockTime.set(new Date());
-
-    if (this.isTracking()) {
-      console.log('Clock IN at', this.lastClockTime());
-    } else {
-      console.log('Clock OUT at', this.lastClockTime());
-    }
+  // Handle start date change
+  onStartDateChange(value: string): void {
+    this.startDate.set(value);
+    this.loadKPIs();
   }
 
-  // Filter change handlers
-  onFilterTypeChange(): void {
-    this.selectedEntityId.set(null);
+  // Handle end date change
+  onEndDateChange(value: string): void {
+    this.endDate.set(value);
+    this.loadKPIs();
   }
 
-  onEntityChange(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value;
-    this.selectedEntityId.set(value ? Number(value) : null);
-  }
-
-  // Load data from API (mock for now)
-  loadData(): void {
-    // Simulate API call
-    console.log('Loading data with filters...');
-    // Update stats based on filters
-    // This would be an actual API call in production
+  // Toggle data view (work/break)
+  toggleDataView(): void {
+    this.dataView.set(this.dataView() === 'work' ? 'break' : 'work');
+    this.updateHoursChart();
+    this.updateAttendanceChart();
   }
 
   // Initialize charts
@@ -292,11 +363,11 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     const config: ChartConfiguration = {
       type: 'bar',
       data: {
-        labels: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
+        labels: [],
         datasets: [
           {
             label: 'Heures travaillées',
-            data: [8, 7.5, 8, 9, 7, 0, 0],
+            data: [],
             backgroundColor: '#FFC300',
             borderColor: '#CC9C00',
             borderWidth: 1,
@@ -322,9 +393,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
         scales: {
           y: {
             beginAtZero: true,
-            max: 10,
             ticks: {
-              stepSize: 2,
               callback: (value) => `${value}h`,
             },
             grid: {
@@ -352,20 +421,16 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     const config: ChartConfiguration = {
       type: 'line',
       data: {
-        labels: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
+        labels: [],
         datasets: [
           {
             label: 'Taux de présence',
-            data: [100, 95, 100, 90, 100, 0, 0],
+            data: [],
             borderColor: '#10B981',
-            backgroundColor: 'rgba(16, 185, 129, 0.1)',
-            tension: 0.4,
+            backgroundColor: '#10B9811A',
+            borderWidth: 2,
             fill: true,
-            pointBackgroundColor: '#10B981',
-            pointBorderColor: '#fff',
-            pointBorderWidth: 2,
-            pointRadius: 4,
-            pointHoverRadius: 6,
+            tension: 0.4,
           },
         ],
       },
@@ -382,9 +447,6 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
             titleColor: '#FFF',
             bodyColor: '#FFF',
             cornerRadius: 4,
-            callbacks: {
-              label: (context) => `${context.parsed.y}%`,
-            },
           },
         },
         scales: {
@@ -392,7 +454,6 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
             beginAtZero: true,
             max: 100,
             ticks: {
-              stepSize: 20,
               callback: (value) => `${value}%`,
             },
             grid: {
@@ -417,184 +478,48 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   updateHoursChart(): void {
     if (!this.hoursChart) return;
 
-    const period = this.hoursPeriod();
     const isWorkView = this.dataView() === 'work';
+    const chartData = this.hoursChartData();
 
-    let labels: string[] = [];
-    let data: number[] = [];
-    let label = '';
-    let color = '';
+    // Mettre à jour les données
+    this.hoursChart.data.labels = chartData.labels;
+    this.hoursChart.data.datasets[0].data = chartData.data;
 
-    if (isWorkView) {
-      label = 'Heures travaillées';
-      color = '#FFC300';
-
-      switch (period) {
-        case 'day':
-          labels = ['00h', '04h', '08h', '12h', '16h', '20h'];
-          data = [0, 0, 2, 3, 2, 1];
-          break;
-        case 'week':
-          labels = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-          data = [8, 7.5, 8, 9, 7, 0, 0];
-          break;
-        case 'month':
-          labels = ['S1', 'S2', 'S3', 'S4'];
-          data = [38, 40, 35, 39];
-          break;
-        case 'year':
-          labels = [
-            'Jan',
-            'Fév',
-            'Mar',
-            'Avr',
-            'Mai',
-            'Jun',
-            'Jul',
-            'Aoû',
-            'Sep',
-            'Oct',
-            'Nov',
-            'Déc',
-          ];
-          data = [160, 152, 168, 156, 160, 144, 120, 168, 160, 156, 0, 0];
-          break;
-      }
-    } else {
-      label = 'Heures de pause';
-      color = '#3B82F6';
-
-      switch (period) {
-        case 'day':
-          labels = ['00h', '04h', '08h', '12h', '16h', '20h'];
-          data = [0, 0, 0, 1, 0.5, 0];
-          break;
-        case 'week':
-          labels = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-          data = [1, 1.5, 1, 1.2, 1, 0, 0];
-          break;
-        case 'month':
-          labels = ['S1', 'S2', 'S3', 'S4'];
-          data = [5, 5.5, 4.8, 6];
-          break;
-        case 'year':
-          labels = [
-            'Jan',
-            'Fév',
-            'Mar',
-            'Avr',
-            'Mai',
-            'Jun',
-            'Jul',
-            'Aoû',
-            'Sep',
-            'Oct',
-            'Nov',
-            'Déc',
-          ];
-          data = [20, 19, 22, 21, 20, 18, 15, 22, 20, 19, 0, 0];
-          break;
-      }
-    }
-
-    this.hoursChart.data.labels = labels;
-    this.hoursChart.data.datasets[0].label = label;
-    this.hoursChart.data.datasets[0].data = data;
-    this.hoursChart.data.datasets[0].backgroundColor = color;
+    // Mettre à jour le style selon la vue
+    this.hoursChart.data.datasets[0].label = isWorkView
+      ? 'Heures travaillées'
+      : 'Heures de pause';
+    this.hoursChart.data.datasets[0].backgroundColor = isWorkView
+      ? '#FFC300'
+      : '#3B82F6';
     this.hoursChart.data.datasets[0].borderColor = isWorkView
       ? '#CC9C00'
       : '#2563EB';
+
     this.hoursChart.update();
   }
 
   updateAttendanceChart(): void {
     if (!this.attendanceChart) return;
 
-    const period = this.attendancePeriod();
     const isWorkView = this.dataView() === 'work';
+    const chartData = this.attendanceChartData();
 
-    let labels: string[] = [];
-    let data: number[] = [];
-    let label = '';
-    let color = '';
+    // Mettre à jour les données
+    this.attendanceChart.data.labels = chartData.labels;
+    this.attendanceChart.data.datasets[0].data = chartData.data;
 
-    if (isWorkView) {
-      label = 'Taux de présence';
-      color = '#10B981';
+    // Mettre à jour le style selon la vue
+    this.attendanceChart.data.datasets[0].label = isWorkView
+      ? 'Taux de présence'
+      : 'Taux de conformité pauses';
+    this.attendanceChart.data.datasets[0].borderColor = isWorkView
+      ? '#10B981'
+      : '#F59E0B';
+    this.attendanceChart.data.datasets[0].backgroundColor = isWorkView
+      ? '#10B9811A'
+      : '#F59E0B1A';
 
-      switch (period) {
-        case 'day':
-          labels = ['00h', '04h', '08h', '12h', '16h', '20h'];
-          data = [0, 0, 100, 100, 100, 0];
-          break;
-        case 'week':
-          labels = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-          data = [100, 95, 100, 90, 100, 0, 0];
-          break;
-        case 'month':
-          labels = ['S1', 'S2', 'S3', 'S4'];
-          data = [96, 98, 92, 95];
-          break;
-        case 'year':
-          labels = [
-            'Jan',
-            'Fév',
-            'Mar',
-            'Avr',
-            'Mai',
-            'Jun',
-            'Jul',
-            'Aoû',
-            'Sep',
-            'Oct',
-            'Nov',
-            'Déc',
-          ];
-          data = [95, 93, 97, 94, 96, 92, 88, 96, 95, 94, 0, 0];
-          break;
-      }
-    } else {
-      label = 'Taux de conformité pauses';
-      color = '#F59E0B';
-
-      switch (period) {
-        case 'day':
-          labels = ['00h', '04h', '08h', '12h', '16h', '20h'];
-          data = [0, 0, 0, 100, 100, 0];
-          break;
-        case 'week':
-          labels = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-          data = [100, 100, 95, 100, 100, 0, 0];
-          break;
-        case 'month':
-          labels = ['S1', 'S2', 'S3', 'S4'];
-          data = [98, 97, 99, 96];
-          break;
-        case 'year':
-          labels = [
-            'Jan',
-            'Fév',
-            'Mar',
-            'Avr',
-            'Mai',
-            'Jun',
-            'Jul',
-            'Aoû',
-            'Sep',
-            'Oct',
-            'Nov',
-            'Déc',
-          ];
-          data = [98, 97, 99, 96, 98, 95, 94, 99, 98, 97, 0, 0];
-          break;
-      }
-    }
-
-    this.attendanceChart.data.labels = labels;
-    this.attendanceChart.data.datasets[0].label = label;
-    this.attendanceChart.data.datasets[0].data = data;
-    this.attendanceChart.data.datasets[0].borderColor = color;
-    this.attendanceChart.data.datasets[0].backgroundColor = `${color}1A`;
     this.attendanceChart.update();
   }
 

@@ -24,6 +24,21 @@
     </a>
   </div>
 
+  <!-- Loading State -->
+  @if (isLoading()) {
+    <div class="flex items-center justify-center py-4">
+      <div class="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+      <span class="ml-2 text-sm text-dark-600">Chargement des statistiques...</span>
+    </div>
+  }
+
+  <!-- Error Message -->
+  @if (errorMessage()) {
+    <div class="bg-error bg-opacity-10 border border-error text-error px-4 py-3 rounded">
+      {{ errorMessage() }}
+    </div>
+  }
+
   <!-- Filters Section (Manager Only) -->
   <div
     *ngIf="isManager()"
@@ -62,8 +77,8 @@
       <div>
         <label class="input-label">Type de données</label>
         <select
-          [(ngModel)]="filterType"
-          (ngModelChange)="onFilterTypeChange()"
+          [ngModel]="filterType()"
+          (ngModelChange)="onFilterTypeChange($event)"
           class="input-field"
         >
           <option value="teams">Équipes</option>
@@ -81,27 +96,39 @@
           }}
         </label>
         <select
-          [value]="selectedEntityId() ?? ''"
-          (change)="onEntityChange($event)"
+          [ngModel]="selectedEntityId() ?? ''"
+          (ngModelChange)="onEntityChange($event)"
           class="input-field"
         >
           <option value="">Tous</option>
-          <option *ngFor="let entity of entitiesList()" [value]="entity.id">
-            {{ getEntityDisplayName(entity) }}
-          </option>
+          @for (entity of entitiesList(); track entity.id) {
+            <option [value]="entity.id">
+              {{ getEntityDisplayName(entity) }}
+            </option>
+          }
         </select>
       </div>
 
       <!-- Start Date -->
       <div>
         <label class="input-label">Date de début</label>
-        <input type="date" [(ngModel)]="startDate" class="input-field" />
+        <input
+          type="date"
+          [ngModel]="startDate()"
+          (ngModelChange)="onStartDateChange($event)"
+          class="input-field"
+        />
       </div>
 
       <!-- End Date -->
       <div>
         <label class="input-label">Date de fin</label>
-        <input type="date" [(ngModel)]="endDate" class="input-field" />
+        <input
+          type="date"
+          [ngModel]="endDate()"
+          (ngModelChange)="onEndDateChange($event)"
+          class="input-field"
+        />
       </div>
     </div>
   </div>
@@ -249,7 +276,8 @@
 
         <!-- Period Selector -->
         <select
-          [(ngModel)]="hoursPeriod"
+          [ngModel]="hoursPeriod()"
+          (ngModelChange)="onHoursPeriodChange($event)"
           class="px-3 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
         >
           <option value="day">Jour</option>
@@ -275,7 +303,8 @@
 
         <!-- Period Selector -->
         <select
-          [(ngModel)]="attendancePeriod"
+          [ngModel]="attendancePeriod()"
+          (ngModelChange)="onAttendancePeriodChange($event)"
           class="px-3 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
         >
           <option value="day">Jour</option>

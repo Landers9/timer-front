@@ -13,18 +13,29 @@ import {
   CheckCircle,
   XCircle,
 } from 'lucide-angular';
+import { TeamService, ApiTeam } from '../../services/team.service';
+import { UserService, ApiUser } from '../../services/user.service';
+import {
+  ReportService,
+  ReportResponse,
+  ReportPeriod,
+  ReportType,
+  ExportFormat,
+  ReportParams,
+} from '../../services/report.service';
 
+// Interfaces identiques à l'original
 interface KPI {
   title: string;
   value: string;
   change: number;
-  trend: 'up' | 'down';
+  trend: 'up' | 'down' | 'stable';
   icon: any;
   color: string;
 }
 
 interface EmployeePerformance {
-  id: number;
+  id: string;
   name: string;
   totalHours: number;
   avgHoursPerDay: number;
@@ -35,7 +46,7 @@ interface EmployeePerformance {
 }
 
 interface TeamPerformance {
-  id: number;
+  id: string;
   name: string;
   memberCount: number;
   avgHours: number;
@@ -43,8 +54,25 @@ interface TeamPerformance {
   productivity: number;
 }
 
+interface Summary {
+  topPerformer: {
+    name: string;
+    totalHours: number;
+    attendanceRate: number;
+  };
+  bestTeam: {
+    name: string;
+    attendanceRate: number;
+    productivity: number;
+  };
+  attentionPoints: {
+    message: string;
+    change: number;
+    trend: 'up' | 'down' | 'stable';
+  };
+}
+
 type Period = 'week' | 'month' | 'quarter' | 'year';
-type ReportType = 'individual' | 'team' | 'global';
 
 @Component({
   selector: 'app-reports',
@@ -64,163 +92,188 @@ export class ReportsComponent implements OnInit {
   readonly CheckCircleIcon = CheckCircle;
   readonly XCircleIcon = XCircle;
 
+  // Loading & Error states
+  isLoading = signal(false);
+  isExporting = signal(false);
+  errorMessage = signal<string | null>(null);
+
   // Filters
   selectedPeriod = signal<Period>('month');
   selectedReportType = signal<ReportType>('global');
-  selectedTeamId = signal<number | null>(null);
-  selectedEmployeeId = signal<number | null>(null);
+  selectedTeamId = signal<string | null>(null);
+  selectedEmployeeId = signal<string | null>(null);
+  selectedExportFormat = signal<ExportFormat>('pdf');
 
-  // Data
-  teams = signal([
-    { id: 1, name: 'Équipe Développement' },
-    { id: 2, name: 'Équipe Marketing' },
-    { id: 3, name: 'Équipe Ventes' },
-    { id: 4, name: 'Équipe Support' },
-  ]);
-
-  employees = signal([
-    { id: 1, name: 'Jean Dupont' },
-    { id: 2, name: 'Marie Martin' },
-    { id: 3, name: 'Pierre Bernard' },
-    { id: 4, name: 'Sophie Dubois' },
-    { id: 5, name: 'Luc Moreau' },
-  ]);
+  // Data from API
+  teams = signal<{ id: string; name: string }[]>([]);
+  employees = signal<{ id: string; name: string }[]>([]);
 
   // KPIs
-  kpis = computed<KPI[]>(() => [
-    {
-      title: 'Heures totales',
-      value: '1,248h',
-      change: 12.5,
-      trend: 'up',
-      icon: this.ClockIcon,
-      color: 'primary',
-    },
-    {
-      title: 'Taux de présence',
-      value: '94.2%',
-      change: -2.3,
-      trend: 'down',
-      icon: this.CheckCircleIcon,
-      color: 'success',
-    },
-    {
-      title: 'Retards',
-      value: '23',
-      change: 8.1,
-      trend: 'up',
-      icon: this.AlertCircleIcon,
-      color: 'warning',
-    },
-    {
-      title: 'Absences',
-      value: '12',
-      change: -15.2,
-      trend: 'down',
-      icon: this.XCircleIcon,
-      color: 'error',
-    },
-  ]);
+  kpis = signal<KPI[]>([]);
 
-  employeePerformances = signal<EmployeePerformance[]>([
-    {
-      id: 1,
-      name: 'Jean Dupont',
-      totalHours: 168,
-      avgHoursPerDay: 8.4,
-      attendanceRate: 100,
-      lateCount: 0,
-      onTimeRate: 100,
-      status: 'excellent',
-    },
-    {
-      id: 2,
-      name: 'Marie Martin',
-      totalHours: 162,
-      avgHoursPerDay: 8.1,
-      attendanceRate: 95,
-      lateCount: 2,
-      onTimeRate: 90,
-      status: 'good',
-    },
-    {
-      id: 3,
-      name: 'Pierre Bernard',
-      totalHours: 156,
-      avgHoursPerDay: 7.8,
-      attendanceRate: 90,
-      lateCount: 5,
-      onTimeRate: 75,
-      status: 'warning',
-    },
-    {
-      id: 4,
-      name: 'Sophie Dubois',
-      totalHours: 170,
-      avgHoursPerDay: 8.5,
-      attendanceRate: 100,
-      lateCount: 1,
-      onTimeRate: 95,
-      status: 'excellent',
-    },
-    {
-      id: 5,
-      name: 'Luc Moreau',
-      totalHours: 145,
-      avgHoursPerDay: 7.2,
-      attendanceRate: 85,
-      lateCount: 8,
-      onTimeRate: 60,
-      status: 'poor',
-    },
-  ]);
+  // Performance data
+  employeePerformances = signal<EmployeePerformance[]>([]);
+  teamPerformances = signal<TeamPerformance[]>([]);
 
-  teamPerformances = signal<TeamPerformance[]>([
-    {
-      id: 1,
-      name: 'Équipe Développement',
-      memberCount: 8,
-      avgHours: 165,
-      attendanceRate: 94,
-      productivity: 88,
-    },
-    {
-      id: 2,
-      name: 'Équipe Marketing',
-      memberCount: 5,
-      avgHours: 158,
-      attendanceRate: 91,
-      productivity: 85,
-    },
-    {
-      id: 3,
-      name: 'Équipe Ventes',
-      memberCount: 10,
-      avgHours: 172,
-      attendanceRate: 96,
-      productivity: 92,
-    },
-    {
-      id: 4,
-      name: 'Équipe Support',
-      memberCount: 6,
-      avgHours: 160,
-      attendanceRate: 89,
-      productivity: 82,
-    },
-  ]);
+  // Summary
+  summary = signal<Summary | null>(null);
 
-  // Computed
+  // Computed (identiques à l'original)
   showTeamSelect = computed(() => this.selectedReportType() === 'team');
   showEmployeeSelect = computed(
     () => this.selectedReportType() === 'individual'
   );
 
+  constructor(
+    private reportService: ReportService,
+    private teamService: TeamService,
+    private userService: UserService
+  ) {}
+
   ngOnInit(): void {
-    // Load data from API
+    this.loadTeams();
+    this.loadEmployees();
+    this.loadReports();
   }
 
-  // Helpers
+  /**
+   * Charger les équipes depuis l'API
+   */
+  private loadTeams(): void {
+    this.teamService.getAllTeams().subscribe({
+      next: (apiTeams: ApiTeam[]) => {
+        this.teams.set(apiTeams.map((t) => ({ id: t.id, name: t.name })));
+      },
+      error: (error) => console.error('Erreur chargement équipes:', error),
+    });
+  }
+
+  /**
+   * Charger les employés depuis l'API
+   */
+  private loadEmployees(): void {
+    this.userService.getAllUsers().subscribe({
+      next: (apiUsers: ApiUser[]) => {
+        this.employees.set(
+          apiUsers.map((u) => ({
+            id: u.id,
+            name: `${u.first_name} ${u.last_name}`,
+          }))
+        );
+      },
+      error: (error) => console.error('Erreur chargement employés:', error),
+    });
+  }
+
+  /**
+   * Charger les rapports depuis l'API
+   */
+  loadReports(): void {
+    this.isLoading.set(true);
+    this.errorMessage.set(null);
+
+    const params: ReportParams = {
+      period: this.selectedPeriod() as ReportPeriod,
+      report_type: this.selectedReportType(),
+    };
+
+    if (this.selectedTeamId() && this.selectedReportType() === 'team') {
+      params.team_id = this.selectedTeamId()!;
+    }
+
+    if (
+      this.selectedEmployeeId() &&
+      this.selectedReportType() === 'individual'
+    ) {
+      params.employee_id = this.selectedEmployeeId()!;
+    }
+
+    this.reportService.getReports(params).subscribe({
+      next: (response: ReportResponse) => {
+        // Mapper les KPIs avec les icônes
+        this.kpis.set(
+          response.kpis.map((kpi) => ({
+            ...kpi,
+            icon: this.getKpiIcon(kpi.title),
+          }))
+        );
+
+        this.employeePerformances.set(response.employeePerformances);
+        this.teamPerformances.set(response.teamPerformances);
+        this.summary.set(response.summary);
+        this.isLoading.set(false);
+      },
+      error: (error) => {
+        console.error('Erreur chargement rapports:', error);
+        this.errorMessage.set(error.message);
+        this.isLoading.set(false);
+      },
+    });
+  }
+
+  /**
+   * Obtenir l'icône correspondant au titre du KPI
+   */
+  private getKpiIcon(title: string): any {
+    const lowerTitle = title.toLowerCase();
+    if (lowerTitle.includes('heure')) return this.ClockIcon;
+    if (lowerTitle.includes('présence')) return this.CheckCircleIcon;
+    if (lowerTitle.includes('retard')) return this.AlertCircleIcon;
+    if (lowerTitle.includes('absence')) return this.XCircleIcon;
+    return this.ClockIcon;
+  }
+
+  /**
+   * Handler changement type de rapport (identique à l'original + reload)
+   */
+  onReportTypeChange(): void {
+    this.selectedTeamId.set(null);
+    this.selectedEmployeeId.set(null);
+    this.loadReports();
+  }
+
+  /**
+   * Exporter le rapport
+   */
+  exportReport(): void {
+    this.isExporting.set(true);
+    this.errorMessage.set(null);
+
+    const dateRange = this.reportService.calculateDateRange(
+      this.selectedPeriod() as ReportPeriod
+    );
+
+    const request = {
+      report_type: this.selectedReportType(),
+      format: this.selectedExportFormat(),
+      start_date: dateRange.start_date,
+      end_date: dateRange.end_date,
+      ...(this.selectedTeamId() && { team_id: this.selectedTeamId()! }),
+      ...(this.selectedEmployeeId() && {
+        employee_id: this.selectedEmployeeId()!,
+      }),
+    };
+
+    this.reportService.generateReport(request).subscribe({
+      next: (blob: Blob) => {
+        const filename = this.reportService.generateFilename(
+          this.selectedReportType(),
+          this.selectedExportFormat(),
+          this.selectedPeriod() as ReportPeriod
+        );
+        this.reportService.downloadFile(blob, filename);
+        this.isExporting.set(false);
+      },
+      error: (error) => {
+        console.error('Erreur export rapport:', error);
+        this.errorMessage.set(error.message || "Erreur lors de l'export");
+        this.isExporting.set(false);
+      },
+    });
+  }
+
+  // ========== HELPERS (identiques à l'original) ==========
+
   getStatusBadgeClass(status: string): string {
     switch (status) {
       case 'excellent':
@@ -264,16 +317,5 @@ export class ReportsComponent implements OnInit {
       default:
         return 'bg-gray-100 text-gray-700';
     }
-  }
-
-  exportReport(): void {
-    console.log('Exporting report...');
-    // TODO: Implement export functionality
-    alert('Export de rapport - Fonctionnalité à implémenter');
-  }
-
-  onReportTypeChange(): void {
-    this.selectedTeamId.set(null);
-    this.selectedEmployeeId.set(null);
   }
 }

@@ -15,7 +15,7 @@ import { environment } from '../../environments/environment';
 export type FilterType = 'teams' | 'employees';
 
 /**
- * Périodes disponibles
+ * Périodes disponibles pour l'agrégation des graphiques
  */
 export type PeriodType = 'day' | 'week' | 'month' | 'year';
 
@@ -64,6 +64,17 @@ export interface KPIResponse {
   attendance_chart: ChartData;
 }
 
+/**
+ * Interface pour les paramètres de requête KPIs
+ */
+export interface KPIParams {
+  filter_type: FilterType;
+  entity_id?: string;
+  start_date?: string;
+  end_date?: string;
+  period: PeriodType;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -74,86 +85,95 @@ export class StatsService {
 
   /**
    * GET /stats/kpis - Récupérer les KPIs avec filtres
-   * @param filterType - Type de filtre (teams ou employees)
-   * @param period - Période (day, week, month, year)
-   * @param entityId - ID de l'équipe ou de l'employé (optionnel)
+   *
+   * @param params - Paramètres de la requête
    * @returns Observable<KPIResponse>
+   *
+   * Paramètres API:
+   * - filter_type: 'teams' ou 'employees' (requis)
+   * - entity_id: UUID de l'équipe ou de l'employé (optionnel)
+   * - start_date: Date de début au format YYYY-MM-DD (par défaut: 30 jours avant end_date)
+   * - end_date: Date de fin au format YYYY-MM-DD (par défaut: aujourd'hui)
+   * - period: Période d'agrégation des graphiques ('day', 'week', 'month', 'year')
    */
-  getKPIs(
-    filterType: FilterType,
-    period: PeriodType,
-    entityId?: string
-  ): Observable<KPIResponse> {
-    let params = new HttpParams()
-      .set('filter_type', filterType)
-      .set('period', period);
+  getKPIs(params: KPIParams): Observable<KPIResponse> {
+    let httpParams = new HttpParams()
+      .set('filter_type', params.filter_type)
+      .set('period', params.period);
 
-    // Ajouter l'ID si fourni
-    if (entityId) {
-      const paramName = filterType === 'teams' ? 'team_id' : 'employee_id';
-      params = params.set(paramName, entityId);
+    // Ajouter entity_id si fourni
+    if (params.entity_id) {
+      httpParams = httpParams.set('entity_id', params.entity_id);
+    }
+
+    // Ajouter start_date si fourni
+    if (params.start_date) {
+      httpParams = httpParams.set('start_date', params.start_date);
+    }
+
+    // Ajouter end_date si fourni
+    if (params.end_date) {
+      httpParams = httpParams.set('end_date', params.end_date);
     }
 
     return this.http
-      .get<KPIResponse>(`${this.apiUrl}/kpis`, { params })
+      .get<KPIResponse>(`${this.apiUrl}/kpis`, { params: httpParams })
       .pipe(catchError(this.handleError));
   }
 
   /**
-   * Obtenir les labels de graphique selon la période
-   * @param period - Période sélectionnée
-   * @returns Labels appropriés
+   * Obtenir la date d'aujourd'hui au format YYYY-MM-DD
    */
-  getChartLabels(period: PeriodType): string[] {
-    const labelMap: Record<PeriodType, string[]> = {
-      day: ['00h', '04h', '08h', '12h', '16h', '20h'],
-      week: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
-      month: ['S1', 'S2', 'S3', 'S4'],
-      year: [
-        'Jan',
-        'Fév',
-        'Mar',
-        'Avr',
-        'Mai',
-        'Jun',
-        'Jul',
-        'Aoû',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Déc',
-      ],
-    };
+  getTodayDate(): string {
+    return new Date().toISOString().split('T')[0];
+  }
 
-    return labelMap[period];
+  /**
+   * Obtenir la date il y a N jours au format YYYY-MM-DD
+   */
+  getDateDaysAgo(days: number): string {
+    const date = new Date();
+    date.setDate(date.getDate() - days);
+    return date.toISOString().split('T')[0];
+  }
+
+  /**
+   * Obtenir les dates par défaut (30 derniers jours)
+   */
+  getDefaultDateRange(): { start_date: string; end_date: string } {
+    return {
+      start_date: this.getDateDaysAgo(30),
+      end_date: this.getTodayDate(),
+    };
   }
 
   /**
    * Gestion des erreurs HTTP
-   * @param error - Erreur HTTP
-   * @returns Observable avec le message d'erreur
    */
-  private handleError(error: HttpErrorResponse): Observable<never> {
+  private handleError = (error: HttpErrorResponse): Observable<never> => {
     let errorMessage =
       'Une erreur est survenue lors de la récupération des statistiques';
 
     if (error.error instanceof ErrorEvent) {
       // Erreur côté client
-      errorMessage = `Erreur: ${error.error.message}`;
+      errorMessage = error.error.message;
     } else {
       // Erreur côté serveur
-      if (error.status === 401) {
-        errorMessage = 'Session expirée. Veuillez vous reconnecter.';
+      if (error.error?.detail) {
+        errorMessage = error.error.detail;
+      } else if (error.status === 400) {
+        errorMessage = 'Paramètres de requête invalides';
+      } else if (error.status === 401) {
+        errorMessage = 'Non autorisé';
       } else if (error.status === 403) {
-        errorMessage = "Vous n'avez pas les droits nécessaires.";
+        errorMessage = 'Accès refusé';
       } else if (error.status === 404) {
-        errorMessage = 'Données statistiques non trouvées.';
-      } else if (error.status === 500) {
-        errorMessage = 'Erreur serveur. Veuillez réessayer plus tard.';
+        errorMessage = 'Ressource non trouvée';
+      } else if (error.status >= 500) {
+        errorMessage = 'Erreur serveur';
       }
     }
 
-    console.error('Erreur Stats API:', errorMessage, error);
     return throwError(() => new Error(errorMessage));
-  }
+  };
 }

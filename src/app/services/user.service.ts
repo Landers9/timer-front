@@ -223,7 +223,7 @@ export class UserService {
    */
   updateUser(userId: string, userData: UpdateUserRequest): Observable<ApiUser> {
     return this.http
-      .put<ApiUser>(`${this.apiUrl}/${userId}/`, userData)
+      .patch<ApiUser>(`${this.apiUrl}/${userId}/`, userData)
       .pipe(catchError(this.handleError));
   }
 

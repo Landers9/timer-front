@@ -10,10 +10,19 @@
       </p>
     </div>
 
-    <button (click)="exportReport()" class="btn-primary">
+    <button
+      (click)="exportReport()"
+      [disabled]="isExporting()"
+      class="btn-primary"
+    >
       <lucide-angular [img]="CalendarIcon" class="w-5 h-5"></lucide-angular>
-      <span>Exporter le rapport</span>
+      <span>{{ isExporting() ? 'Export...' : 'Exporter le rapport' }}</span>
     </button>
+  </div>
+
+  <!-- Error Message -->
+  <div *ngIf="errorMessage()" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+    {{ errorMessage() }}
   </div>
 
   <!-- Filters -->
@@ -26,7 +35,11 @@
       <!-- Period -->
       <div>
         <label class="input-label">Période</label>
-        <select [(ngModel)]="selectedPeriod" class="input-field">
+        <select
+          [ngModel]="selectedPeriod()"
+          (ngModelChange)="selectedPeriod.set($event); loadReports()"
+          class="input-field"
+        >
           <option value="week">Semaine</option>
           <option value="month">Mois</option>
           <option value="quarter">Trimestre</option>
@@ -38,8 +51,8 @@
       <div>
         <label class="input-label">Type de rapport</label>
         <select
-          [(ngModel)]="selectedReportType"
-          (ngModelChange)="onReportTypeChange()"
+          [ngModel]="selectedReportType()"
+          (ngModelChange)="selectedReportType.set($event); onReportTypeChange()"
           class="input-field"
         >
           <option value="global">Vue globale</option>
@@ -51,9 +64,13 @@
       <!-- Team Select (conditional) -->
       <div *ngIf="showTeamSelect()">
         <label class="input-label">Équipe</label>
-        <select [(ngModel)]="selectedTeamId" class="input-field">
-          <option [value]="null">-- Sélectionner une équipe --</option>
-          <option *ngFor="let team of teams()" [value]="team.id">
+        <select
+          [ngModel]="selectedTeamId()"
+          (ngModelChange)="selectedTeamId.set($event); loadReports()"
+          class="input-field"
+        >
+          <option [ngValue]="null">-- Sélectionner une équipe --</option>
+          <option *ngFor="let team of teams()" [ngValue]="team.id">
             {{ team.name }}
           </option>
         </select>
@@ -62,9 +79,13 @@
       <!-- Employee Select (conditional) -->
       <div *ngIf="showEmployeeSelect()">
         <label class="input-label">Employé</label>
-        <select [(ngModel)]="selectedEmployeeId" class="input-field">
-          <option [value]="null">-- Sélectionner un employé --</option>
-          <option *ngFor="let employee of employees()" [value]="employee.id">
+        <select
+          [ngModel]="selectedEmployeeId()"
+          (ngModelChange)="selectedEmployeeId.set($event); loadReports()"
+          class="input-field"
+        >
+          <option [ngValue]="null">-- Sélectionner un employé --</option>
+          <option *ngFor="let employee of employees()" [ngValue]="employee.id">
             {{ employee.name }}
           </option>
         </select>
@@ -72,257 +93,268 @@
     </div>
   </div>
 
-  <!-- KPIs Cards -->
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-    <div *ngFor="let kpi of kpis()" class="bg-white rounded-lg border border-gray-200 p-5">
-      <div class="flex items-start justify-between">
-        <div class="flex-1">
-          <p class="text-xs text-dark-600 font-medium mb-1">{{ kpi.title }}</p>
-          <p class="text-2xl font-bold text-dark-900 mb-2">{{ kpi.value }}</p>
-
-          <div class="flex items-center gap-1">
-            <lucide-angular
-              [img]="kpi.trend === 'up' ? TrendingUpIcon : TrendingDownIcon"
-              [class.text-success]="kpi.trend === 'up' && kpi.color !== 'warning' && kpi.color !== 'error'"
-              [class.text-error]="kpi.trend === 'down' || kpi.color === 'warning' || kpi.color === 'error'"
-              class="w-4 h-4"
-            ></lucide-angular>
-            <span
-              [class.text-success]="kpi.trend === 'up' && kpi.color !== 'warning' && kpi.color !== 'error'"
-              [class.text-error]="kpi.trend === 'down' || kpi.color === 'warning' || kpi.color === 'error'"
-              class="text-xs font-semibold"
-            >
-              {{ kpi.change > 0 ? '+' : '' }}{{ kpi.change }}%
-            </span>
-            <span class="text-xs text-dark-600">vs période précédente</span>
-          </div>
-        </div>
-
-        <div [class]="'w-12 h-12 rounded-full flex items-center justify-center ' + getKpiColorClass(kpi.color)">
-          <lucide-angular [img]="kpi.icon" class="w-6 h-6"></lucide-angular>
-        </div>
-      </div>
+  <!-- Loading State -->
+  <div *ngIf="isLoading()" class="flex items-center justify-center py-12">
+    <div class="text-center">
+      <div class="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+      <p class="text-sm text-dark-600">Chargement des rapports...</p>
     </div>
   </div>
 
-  <!-- Performance Tables -->
-  <div class="space-y-6">
-    <!-- Employee Performance (show for 'individual' or 'global') -->
-    <div
-      *ngIf="selectedReportType() === 'individual' || selectedReportType() === 'global'"
-      class="bg-white rounded-lg border border-gray-200 overflow-hidden"
-    >
-      <div class="p-5 border-b border-gray-200">
-        <h3 class="text-lg font-semibold text-dark-900 flex items-center gap-2">
-          <lucide-angular [img]="UsersIcon" class="w-5 h-5"></lucide-angular>
-          Performance des employés
-        </h3>
-      </div>
+  <!-- Content (when not loading) -->
+  <ng-container *ngIf="!isLoading()">
+    <!-- KPIs Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div *ngFor="let kpi of kpis()" class="bg-white rounded-lg border border-gray-200 p-5">
+        <div class="flex items-start justify-between">
+          <div class="flex-1">
+            <p class="text-xs text-dark-600 font-medium mb-1">{{ kpi.title }}</p>
+            <p class="text-2xl font-bold text-dark-900 mb-2">{{ kpi.value }}</p>
 
-      <div class="overflow-x-auto">
-        <table class="w-full">
-          <thead class="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th class="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase">
-                Nom
-              </th>
-              <th class="px-6 py-3 text-center text-xs font-semibold text-dark-600 uppercase">
-                Heures totales
-              </th>
-              <th class="px-6 py-3 text-center text-xs font-semibold text-dark-600 uppercase">
-                Moy. par jour
-              </th>
-              <th class="px-6 py-3 text-center text-xs font-semibold text-dark-600 uppercase">
-                Taux de présence
-              </th>
-              <th class="px-6 py-3 text-center text-xs font-semibold text-dark-600 uppercase">
-                Retards
-              </th>
-              <th class="px-6 py-3 text-center text-xs font-semibold text-dark-600 uppercase">
-                Ponctualité
-              </th>
-              <th class="px-6 py-3 text-center text-xs font-semibold text-dark-600 uppercase">
-                Statut
-              </th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-200">
-            <tr *ngFor="let emp of employeePerformances()" class="hover:bg-gray-50">
-              <td class="px-6 py-4 text-sm font-medium text-dark-900 whitespace-nowrap">
-                {{ emp.name }}
-              </td>
-              <td class="px-6 py-4 text-sm text-dark-600 text-center whitespace-nowrap">
-                <span class="font-semibold">{{ emp.totalHours }}h</span>
-              </td>
-              <td class="px-6 py-4 text-sm text-dark-600 text-center whitespace-nowrap">
-                {{ emp.avgHoursPerDay }}h
-              </td>
-              <td class="px-6 py-4 text-sm text-dark-600 text-center whitespace-nowrap">
-                <div class="flex items-center justify-center gap-2">
-                  <div class="flex-1 max-w-[80px] h-2 bg-gray-200 rounded-full overflow-hidden">
-                    <div
-                      class="h-full rounded-full transition-all"
-                      [class.bg-success]="emp.attendanceRate >= 95"
-                      [class.bg-info]="emp.attendanceRate >= 85 && emp.attendanceRate < 95"
-                      [class.bg-warning]="emp.attendanceRate >= 70 && emp.attendanceRate < 85"
-                      [class.bg-error]="emp.attendanceRate < 70"
-                      [style.width.%]="emp.attendanceRate"
-                    ></div>
-                  </div>
-                  <span class="text-xs font-semibold">{{ emp.attendanceRate }}%</span>
-                </div>
-              </td>
-              <td class="px-6 py-4 text-sm text-center whitespace-nowrap">
-                <span
-                  [class.text-success]="emp.lateCount === 0"
-                  [class.text-warning]="emp.lateCount > 0 && emp.lateCount <= 3"
-                  [class.text-error]="emp.lateCount > 3"
-                  class="font-semibold"
-                >
-                  {{ emp.lateCount }}
-                </span>
-              </td>
-              <td class="px-6 py-4 text-sm text-dark-600 text-center whitespace-nowrap">
-                {{ emp.onTimeRate }}%
-              </td>
-              <td class="px-6 py-4 text-center whitespace-nowrap">
-                <span [class]="'badge ' + getStatusBadgeClass(emp.status)">
-                  {{ getStatusLabel(emp.status) }}
-                </span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+            <div class="flex items-center gap-1">
+              <lucide-angular
+                [img]="kpi.trend === 'up' ? TrendingUpIcon : TrendingDownIcon"
+                [class.text-success]="kpi.trend === 'up' && kpi.color !== 'warning' && kpi.color !== 'error'"
+                [class.text-error]="kpi.trend === 'down' || kpi.color === 'warning' || kpi.color === 'error'"
+                class="w-4 h-4"
+              ></lucide-angular>
+              <span
+                [class.text-success]="kpi.trend === 'up' && kpi.color !== 'warning' && kpi.color !== 'error'"
+                [class.text-error]="kpi.trend === 'down' || kpi.color === 'warning' || kpi.color === 'error'"
+                class="text-xs font-semibold"
+              >
+                {{ kpi.change > 0 ? '+' : '' }}{{ kpi.change }}%
+              </span>
+              <span class="text-xs text-dark-600">vs période précédente</span>
+            </div>
+          </div>
+
+          <div [class]="'w-12 h-12 rounded-full flex items-center justify-center ' + getKpiColorClass(kpi.color)">
+            <lucide-angular [img]="kpi.icon" class="w-6 h-6"></lucide-angular>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- Team Performance (show for 'team' or 'global') -->
-    <div
-      *ngIf="selectedReportType() === 'team' || selectedReportType() === 'global'"
-      class="bg-white rounded-lg border border-gray-200 overflow-hidden"
-    >
-      <div class="p-5 border-b border-gray-200">
-        <h3 class="text-lg font-semibold text-dark-900 flex items-center gap-2">
-          <lucide-angular [img]="UsersIcon" class="w-5 h-5"></lucide-angular>
-          Performance des équipes
-        </h3>
-      </div>
+    <!-- Performance Tables -->
+    <div class="space-y-6">
+      <!-- Employee Performance (show for 'individual' or 'global') -->
+      <div
+        *ngIf="selectedReportType() === 'individual' || selectedReportType() === 'global'"
+        class="bg-white rounded-lg border border-gray-200 overflow-hidden"
+      >
+        <div class="p-5 border-b border-gray-200">
+          <h3 class="text-lg font-semibold text-dark-900 flex items-center gap-2">
+            <lucide-angular [img]="UsersIcon" class="w-5 h-5"></lucide-angular>
+            Performance des employés
+          </h3>
+        </div>
 
-      <div class="overflow-x-auto">
-        <table class="w-full">
-          <thead class="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th class="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase">
-                Équipe
-              </th>
-              <th class="px-6 py-3 text-center text-xs font-semibold text-dark-600 uppercase">
-                Membres
-              </th>
-              <th class="px-6 py-3 text-center text-xs font-semibold text-dark-600 uppercase">
-                Moy. Heures
-              </th>
-              <th class="px-6 py-3 text-center text-xs font-semibold text-dark-600 uppercase">
-                Taux de présence
-              </th>
-              <th class="px-6 py-3 text-center text-xs font-semibold text-dark-600 uppercase">
-                Productivité
-              </th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-200">
-            <tr *ngFor="let team of teamPerformances()" class="hover:bg-gray-50">
-              <td class="px-6 py-4 text-sm font-medium text-dark-900 whitespace-nowrap">
-                {{ team.name }}
-              </td>
-              <td class="px-6 py-4 text-sm text-dark-600 text-center whitespace-nowrap">
-                <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary-100 text-primary-700 text-sm font-semibold">
-                  {{ team.memberCount }}
-                </span>
-              </td>
-              <td class="px-6 py-4 text-sm text-dark-600 text-center whitespace-nowrap">
-                <span class="font-semibold">{{ team.avgHours }}h</span>
-              </td>
-              <td class="px-6 py-4 text-sm text-dark-600 text-center whitespace-nowrap">
-                <div class="flex items-center justify-center gap-2">
-                  <div class="flex-1 max-w-[100px] h-2 bg-gray-200 rounded-full overflow-hidden">
-                    <div
-                      class="h-full rounded-full transition-all"
-                      [class.bg-success]="team.attendanceRate >= 95"
-                      [class.bg-info]="team.attendanceRate >= 85 && team.attendanceRate < 95"
-                      [class.bg-warning]="team.attendanceRate >= 70 && team.attendanceRate < 85"
-                      [class.bg-error]="team.attendanceRate < 70"
-                      [style.width.%]="team.attendanceRate"
-                    ></div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase">
+                  Nom
+                </th>
+                <th class="px-6 py-3 text-center text-xs font-semibold text-dark-600 uppercase">
+                  Heures totales
+                </th>
+                <th class="px-6 py-3 text-center text-xs font-semibold text-dark-600 uppercase">
+                  Moy. par jour
+                </th>
+                <th class="px-6 py-3 text-center text-xs font-semibold text-dark-600 uppercase">
+                  Taux de présence
+                </th>
+                <th class="px-6 py-3 text-center text-xs font-semibold text-dark-600 uppercase">
+                  Retards
+                </th>
+                <th class="px-6 py-3 text-center text-xs font-semibold text-dark-600 uppercase">
+                  Ponctualité
+                </th>
+                <th class="px-6 py-3 text-center text-xs font-semibold text-dark-600 uppercase">
+                  Statut
+                </th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+              <tr *ngFor="let emp of employeePerformances()" class="hover:bg-gray-50">
+                <td class="px-6 py-4 text-sm font-medium text-dark-900 whitespace-nowrap">
+                  {{ emp.name }}
+                </td>
+                <td class="px-6 py-4 text-sm text-dark-600 text-center whitespace-nowrap">
+                  <span class="font-semibold">{{ emp.totalHours }}h</span>
+                </td>
+                <td class="px-6 py-4 text-sm text-dark-600 text-center whitespace-nowrap">
+                  {{ emp.avgHoursPerDay }}h
+                </td>
+                <td class="px-6 py-4 text-sm text-dark-600 text-center whitespace-nowrap">
+                  <div class="flex items-center justify-center gap-2">
+                    <div class="flex-1 max-w-[80px] h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        class="h-full rounded-full transition-all"
+                        [class.bg-success]="emp.attendanceRate >= 95"
+                        [class.bg-info]="emp.attendanceRate >= 85 && emp.attendanceRate < 95"
+                        [class.bg-warning]="emp.attendanceRate >= 70 && emp.attendanceRate < 85"
+                        [class.bg-error]="emp.attendanceRate < 70"
+                        [style.width.%]="emp.attendanceRate"
+                      ></div>
+                    </div>
+                    <span class="text-xs font-semibold">{{ emp.attendanceRate }}%</span>
                   </div>
-                  <span class="text-xs font-semibold">{{ team.attendanceRate }}%</span>
-                </div>
-              </td>
-              <td class="px-6 py-4 text-center whitespace-nowrap">
-                <div class="flex items-center justify-center gap-2">
-                  <div class="flex-1 max-w-[120px] h-2 bg-gray-200 rounded-full overflow-hidden">
-                    <div
-                      class="h-full rounded-full transition-all"
-                      [class.bg-success]="team.productivity >= 85"
-                      [class.bg-warning]="team.productivity >= 70 && team.productivity < 85"
-                      [class.bg-error]="team.productivity < 70"
-                      [style.width.%]="team.productivity"
-                    ></div>
-                  </div>
-                  <span class="text-xs font-semibold text-dark-900">
-                    {{ team.productivity }}%
+                </td>
+                <td class="px-6 py-4 text-sm text-center whitespace-nowrap">
+                  <span
+                    [class.text-success]="emp.lateCount === 0"
+                    [class.text-warning]="emp.lateCount > 0 && emp.lateCount <= 3"
+                    [class.text-error]="emp.lateCount > 3"
+                    class="font-semibold"
+                  >
+                    {{ emp.lateCount }}
                   </span>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                </td>
+                <td class="px-6 py-4 text-sm text-dark-600 text-center whitespace-nowrap">
+                  {{ emp.onTimeRate }}%
+                </td>
+                <td class="px-6 py-4 text-center whitespace-nowrap">
+                  <span [class]="'badge ' + getStatusBadgeClass(emp.status)">
+                    {{ getStatusLabel(emp.status) }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Team Performance (show for 'team' or 'global') -->
+      <div
+        *ngIf="selectedReportType() === 'team' || selectedReportType() === 'global'"
+        class="bg-white rounded-lg border border-gray-200 overflow-hidden"
+      >
+        <div class="p-5 border-b border-gray-200">
+          <h3 class="text-lg font-semibold text-dark-900 flex items-center gap-2">
+            <lucide-angular [img]="UsersIcon" class="w-5 h-5"></lucide-angular>
+            Performance des équipes
+          </h3>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-dark-600 uppercase">
+                  Équipe
+                </th>
+                <th class="px-6 py-3 text-center text-xs font-semibold text-dark-600 uppercase">
+                  Membres
+                </th>
+                <th class="px-6 py-3 text-center text-xs font-semibold text-dark-600 uppercase">
+                  Moy. Heures
+                </th>
+                <th class="px-6 py-3 text-center text-xs font-semibold text-dark-600 uppercase">
+                  Taux de présence
+                </th>
+                <th class="px-6 py-3 text-center text-xs font-semibold text-dark-600 uppercase">
+                  Productivité
+                </th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+              <tr *ngFor="let team of teamPerformances()" class="hover:bg-gray-50">
+                <td class="px-6 py-4 text-sm font-medium text-dark-900 whitespace-nowrap">
+                  {{ team.name }}
+                </td>
+                <td class="px-6 py-4 text-sm text-dark-600 text-center whitespace-nowrap">
+                  <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary-100 text-primary-700 text-sm font-semibold">
+                    {{ team.memberCount }}
+                  </span>
+                </td>
+                <td class="px-6 py-4 text-sm text-dark-600 text-center whitespace-nowrap">
+                  <span class="font-semibold">{{ team.avgHours }}h</span>
+                </td>
+                <td class="px-6 py-4 text-sm text-dark-600 text-center whitespace-nowrap">
+                  <div class="flex items-center justify-center gap-2">
+                    <div class="flex-1 max-w-[100px] h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        class="h-full rounded-full transition-all"
+                        [class.bg-success]="team.attendanceRate >= 95"
+                        [class.bg-info]="team.attendanceRate >= 85 && team.attendanceRate < 95"
+                        [class.bg-warning]="team.attendanceRate >= 70 && team.attendanceRate < 85"
+                        [class.bg-error]="team.attendanceRate < 70"
+                        [style.width.%]="team.attendanceRate"
+                      ></div>
+                    </div>
+                    <span class="text-xs font-semibold">{{ team.attendanceRate }}%</span>
+                  </div>
+                </td>
+                <td class="px-6 py-4 text-center whitespace-nowrap">
+                  <div class="flex items-center justify-center gap-2">
+                    <div class="flex-1 max-w-[120px] h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        class="h-full rounded-full transition-all"
+                        [class.bg-success]="team.productivity >= 85"
+                        [class.bg-warning]="team.productivity >= 70 && team.productivity < 85"
+                        [class.bg-error]="team.productivity < 70"
+                        [style.width.%]="team.productivity"
+                      ></div>
+                    </div>
+                    <span class="text-xs font-semibold text-dark-900">
+                      {{ team.productivity }}%
+                    </span>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- Summary Stats -->
-  <div class="bg-white rounded-lg border border-gray-200 p-6">
-    <h3 class="text-lg font-semibold text-dark-900 mb-4">Résumé de la période</h3>
+    <!-- Summary Stats -->
+    <div class="bg-white rounded-lg border border-gray-200 p-6">
+      <h3 class="text-lg font-semibold text-dark-900 mb-4">Résumé de la période</h3>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div>
-        <p class="text-xs text-dark-600 font-medium mb-2">Top Performer</p>
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-full bg-success bg-opacity-20 flex items-center justify-center">
-            <lucide-angular [img]="CheckCircleIcon" class="w-5 h-5 text-success"></lucide-angular>
-          </div>
-          <div>
-            <p class="text-sm font-semibold text-dark-900">Sophie Dubois</p>
-            <p class="text-xs text-dark-600">170h • 100% présence</p>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div>
+          <p class="text-xs text-dark-600 font-medium mb-2">Top Performer</p>
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-success bg-opacity-20 flex items-center justify-center">
+              <lucide-angular [img]="CheckCircleIcon" class="w-5 h-5 text-success"></lucide-angular>
+            </div>
+            <div>
+              <p class="text-sm font-semibold text-dark-900">{{ summary()?.topPerformer?.name }}</p>
+              <p class="text-xs text-dark-600">{{ summary()?.topPerformer?.totalHours }}h • {{ summary()?.topPerformer?.attendanceRate }}% présence</p>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div>
-        <p class="text-xs text-dark-600 font-medium mb-2">Meilleure équipe</p>
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
-            <lucide-angular [img]="UsersIcon" class="w-5 h-5 text-primary-700"></lucide-angular>
-          </div>
-          <div>
-            <p class="text-sm font-semibold text-dark-900">Équipe Ventes</p>
-            <p class="text-xs text-dark-600">96% présence • 92% productivité</p>
+        <div>
+          <p class="text-xs text-dark-600 font-medium mb-2">Meilleure équipe</p>
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
+              <lucide-angular [img]="UsersIcon" class="w-5 h-5 text-primary-700"></lucide-angular>
+            </div>
+            <div>
+              <p class="text-sm font-semibold text-dark-900">{{ summary()?.bestTeam?.name }}</p>
+              <p class="text-xs text-dark-600">{{ summary()?.bestTeam?.attendanceRate }}% présence • {{ summary()?.bestTeam?.productivity }}% productivité</p>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div>
-        <p class="text-xs text-dark-600 font-medium mb-2">Points d'attention</p>
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-full bg-warning bg-opacity-20 flex items-center justify-center">
-            <lucide-angular [img]="AlertCircleIcon" class="w-5 h-5 text-warning"></lucide-angular>
-          </div>
-          <div>
-            <p class="text-sm font-semibold text-dark-900">23 retards ce mois</p>
-            <p class="text-xs text-dark-600">+8.1% vs mois précédent</p>
+        <div>
+          <p class="text-xs text-dark-600 font-medium mb-2">Points d'attention</p>
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-warning bg-opacity-20 flex items-center justify-center">
+              <lucide-angular [img]="AlertCircleIcon" class="w-5 h-5 text-warning"></lucide-angular>
+            </div>
+            <div>
+              <p class="text-sm font-semibold text-dark-900">{{ summary()?.attentionPoints?.message }}</p>
+              <p class="text-xs text-dark-600">{{ (summary()?.attentionPoints?.change ?? 0) > 0 ? '+' : '' }}{{ summary()?.attentionPoints?.change }}% vs période précédente</p>
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
+  </ng-container>
 </div>
