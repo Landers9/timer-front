@@ -9,7 +9,11 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "test:file": "jest --testPathPattern"
+    "test:file": "jest --testPathPattern",
+    "e2e": "cypress open",
+    "e2e:headless": "cypress run",
+    "e2e:employee": "cypress run --spec 'cypress/e2e/employee-journey.cy.ts'",
+    "e2e:manager": "cypress run --spec 'cypress/e2e/manager-journey.cy.ts'"
   },
   "private": true,
   "dependencies": {
@@ -34,6 +38,7 @@
     "@angular/compiler-cli": "^18.2.0",
     "@types/jest": "^29.5.14",
     "autoprefixer": "^10.4.21",
+    "cypress": "^15.7.1",
     "jest": "^29.7.0",
     "jest-preset-angular": "^14.6.2",
     "postcss": "^8.5.6",
