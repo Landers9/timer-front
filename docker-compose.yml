@@ -1,0 +1,20 @@
+# =============================================================================
+# TASKY Time Manager - Frontend Docker Compose
+# =============================================================================
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tasky-frontend
+    ports:
+      - "4200:80"
+    networks:
+      - tasky-network
+    restart: unless-stopped
+
+networks:
+  tasky-network:
+    external: true
+    name: tasky-network
