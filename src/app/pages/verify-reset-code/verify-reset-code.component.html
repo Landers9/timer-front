@@ -1,11 +1,12 @@
 <!-- src/app/pages/verify-reset-code/verify-reset-code.component.html -->
 <div class="min-h-screen flex items-center justify-center p-4 bg-gray-50">
   <div class="w-full max-w-md">
-
     <!-- Logo -->
     <div class="text-center mb-8">
       <div class="flex items-center justify-center gap-2">
-        <div class="w-7 h-7 bg-dark-900 rounded flex items-center justify-center">
+        <div
+          class="w-7 h-7 bg-dark-900 rounded flex items-center justify-center"
+        >
           <span class="text-primary-500 font-bold text-sm">T</span>
         </div>
         <span class="font-semibold text-base text-dark-900">
@@ -16,12 +17,16 @@
 
     <!-- Card -->
     <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-8">
-
       <!-- Header -->
       <div class="text-center mb-8">
         <div class="flex justify-center mb-4">
-          <div class="w-14 h-14 bg-primary-50 rounded-full flex items-center justify-center">
-            <lucide-angular [img]="ShieldIcon" class="w-7 h-7 text-primary-500"></lucide-angular>
+          <div
+            class="w-14 h-14 bg-primary-50 rounded-full flex items-center justify-center"
+          >
+            <lucide-angular
+              [img]="ShieldIcon"
+              class="w-7 h-7 text-primary-500"
+            ></lucide-angular>
           </div>
         </div>
         <h2 class="text-2xl font-bold text-dark-900">Vérification du code</h2>
@@ -32,11 +37,21 @@
 
       <!-- Form -->
       <form (ngSubmit)="onSubmit()" class="space-y-6">
-
         <!-- Error -->
-        <div *ngIf="errorMessage()" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-start gap-3">
-          <svg class="w-5 h-5 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+        <div
+          *ngIf="errorMessage()"
+          class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md flex items-start gap-3"
+        >
+          <svg
+            class="w-5 h-5 shrink-0 mt-0.5"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path
+              fill-rule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+              clip-rule="evenodd"
+            ></path>
           </svg>
           <span class="text-sm">{{ errorMessage() }}</span>
         </div>
@@ -57,8 +72,12 @@
         </div>
 
         <!-- Submit -->
-        <button type="submit" [disabled]="isLoading()" class="btn btn-primary w-full">
-          {{ isLoading() ? 'Vérification...' : 'Vérifier le code' }}
+        <button
+          type="submit"
+          [disabled]="isLoading()"
+          class="btn btn-primary w-full"
+        >
+          {{ isLoading() ? "Vérification..." : "Vérifier le code" }}
         </button>
       </form>
     </div>

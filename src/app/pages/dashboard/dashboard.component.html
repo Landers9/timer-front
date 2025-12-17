@@ -1,11 +1,13 @@
 <!-- src/app/pages/dashboard/dashboard.component.html -->
 
-<div class="p-6 space-y-6">
+<div class="p-4 sm:p-6 space-y-4 sm:space-y-6">
   <!-- Header: Date + Clock Button -->
-  <div class="flex items-center justify-between">
+  <div
+    class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+  >
     <!-- Date -->
     <div>
-      <h1 class="text-2xl font-semibold text-dark-900 capitalize">
+      <h1 class="text-xl sm:text-2xl font-semibold text-dark-900 capitalize">
         {{ formattedDate() }}
       </h1>
       <p class="text-sm text-dark-600 mt-1">
@@ -16,48 +18,58 @@
     <!-- Clock In/Out Button - LIEN VERS PAGE CLOCK -->
     <a
       href="/clock"
-      class="px-6 py-3 rounded-lg text-dark-900 font-semibold shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2 bg-primary-500 hover:bg-primary-600"
+      class="w-full sm:w-auto px-4 sm:px-6 py-3 rounded-md text-dark-900 font-semibold shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 bg-primary-500 hover:bg-primary-600"
     >
       <lucide-angular [img]="ClockIcon" class="w-5 h-5"></lucide-angular>
-      <span class="hidden sm:inline">Aller au pointage</span>
-      <span class="sm:hidden">Pointage</span>
+      <span>Aller au pointage</span>
     </a>
   </div>
 
   <!-- Loading State -->
   @if (isLoading()) {
-    <div class="flex items-center justify-center py-4">
-      <div class="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
-      <span class="ml-2 text-sm text-dark-600">Chargement des statistiques...</span>
-    </div>
+  <div class="flex items-center justify-center py-4">
+    <div
+      class="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"
+    ></div>
+    <span class="ml-2 text-sm text-dark-600"
+      >Chargement des statistiques...</span
+    >
+  </div>
   }
 
   <!-- Error Message -->
   @if (errorMessage()) {
-    <div class="bg-error bg-opacity-10 border border-error text-error px-4 py-3 rounded">
-      {{ errorMessage() }}
-    </div>
+  <div
+    class="bg-error bg-opacity-10 border border-error text-error px-4 py-3 rounded text-sm"
+  >
+    {{ errorMessage() }}
+  </div>
   }
 
   <!-- Filters Section (Manager Only) -->
   <div
     *ngIf="isManager()"
-    class="bg-white rounded-lg border border-gray-200 p-5"
+    class="bg-white rounded-md border border-gray-200 p-4 sm:p-5"
   >
-    <div class="flex items-center justify-between mb-4">
+    <!-- Header avec toggle -->
+    <div
+      class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4"
+    >
       <h3 class="text-base font-semibold text-dark-900">Filtres d'analyse</h3>
 
       <!-- Toggle Button: Work / Break -->
-      <div class="inline-flex rounded-lg border border-gray-200 p-1 bg-gray-50">
+      <div
+        class="inline-flex rounded-md border border-gray-200 p-1 bg-gray-50 self-start sm:self-auto"
+      >
         <button
           (click)="dataView.set('work')"
           [class.bg-white]="dataView() === 'work'"
           [class.shadow-sm]="dataView() === 'work'"
           [class.text-dark-900]="dataView() === 'work'"
           [class.text-dark-600]="dataView() !== 'work'"
-          class="px-4 py-2 text-sm font-medium rounded-md transition-all duration-200"
+          class="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md transition-all duration-200"
         >
-          Temps de travail
+          Travail
         </button>
         <button
           (click)="dataView.set('break')"
@@ -65,21 +77,22 @@
           [class.shadow-sm]="dataView() === 'break'"
           [class.text-dark-900]="dataView() === 'break'"
           [class.text-dark-600]="dataView() !== 'break'"
-          class="px-4 py-2 text-sm font-medium rounded-md transition-all duration-200"
+          class="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md transition-all duration-200"
         >
-          Temps de pause
+          Pause
         </button>
       </div>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <!-- Filters Grid -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
       <!-- Filter Type: Teams or Employees -->
       <div>
         <label class="input-label">Type de données</label>
         <select
           [ngModel]="filterType()"
           (ngModelChange)="onFilterTypeChange($event)"
-          class="input-field"
+          class="input-field text-sm"
         >
           <option value="teams">Équipes</option>
           <option value="employees">Employés</option>
@@ -89,45 +102,41 @@
       <!-- Entity Selection -->
       <div>
         <label class="input-label">
-          {{
-            filterType() === "teams"
-              ? "Sélectionner une équipe"
-              : "Sélectionner un employé"
-          }}
+          {{ filterType() === "teams" ? "Équipe" : "Employé" }}
         </label>
         <select
           [ngModel]="selectedEntityId() ?? ''"
           (ngModelChange)="onEntityChange($event)"
-          class="input-field"
+          class="input-field text-sm"
         >
           <option value="">Tous</option>
           @for (entity of entitiesList(); track entity.id) {
-            <option [value]="entity.id">
-              {{ getEntityDisplayName(entity) }}
-            </option>
+          <option [value]="entity.id">
+            {{ getEntityDisplayName(entity) }}
+          </option>
           }
         </select>
       </div>
 
       <!-- Start Date -->
       <div>
-        <label class="input-label">Date de début</label>
+        <label class="input-label">Date début</label>
         <input
           type="date"
           [ngModel]="startDate()"
           (ngModelChange)="onStartDateChange($event)"
-          class="input-field"
+          class="input-field text-sm"
         />
       </div>
 
       <!-- End Date -->
       <div>
-        <label class="input-label">Date de fin</label>
+        <label class="input-label">Date fin</label>
         <input
           type="date"
           [ngModel]="endDate()"
           (ngModelChange)="onEndDateChange($event)"
-          class="input-field"
+          class="input-field text-sm"
         />
       </div>
     </div>
@@ -141,7 +150,7 @@
         <p class="text-xs text-dark-600 font-medium">
           {{ currentStats().label1 }}
         </p>
-        <p class="text-2xl font-bold text-dark-900 mt-1">
+        <p class="text-lg sm:text-2xl font-bold text-dark-900 mt-1">
           {{ currentStats().value1 }}
         </p>
       </div>
@@ -266,11 +275,13 @@
   </div>
 
   <!-- Charts Section -->
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
     <!-- Hours Chart -->
     <div class="card">
-      <div class="flex items-center justify-between mb-6">
-        <h3 class="text-lg font-semibold text-dark-900">
+      <div
+        class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 mb-4 sm:mb-6"
+      >
+        <h3 class="text-base sm:text-lg font-semibold text-dark-900">
           {{ dataView() === "work" ? "Heures travaillées" : "Heures de pause" }}
         </h3>
 
@@ -278,7 +289,7 @@
         <select
           [ngModel]="hoursPeriod()"
           (ngModelChange)="onHoursPeriodChange($event)"
-          class="px-3 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+          class="px-3 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 w-full sm:w-auto"
         >
           <option value="day">Jour</option>
           <option value="week">Semaine</option>
@@ -287,15 +298,17 @@
         </select>
       </div>
 
-      <div class="h-64">
+      <div class="h-48 sm:h-64">
         <canvas #hoursChart></canvas>
       </div>
     </div>
 
     <!-- Rate Chart -->
     <div class="card">
-      <div class="flex items-center justify-between mb-6">
-        <h3 class="text-lg font-semibold text-dark-900">
+      <div
+        class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 mb-4 sm:mb-6"
+      >
+        <h3 class="text-base sm:text-lg font-semibold text-dark-900">
           {{
             dataView() === "work" ? "Taux de présence" : "Conformité des pauses"
           }}
@@ -305,7 +318,7 @@
         <select
           [ngModel]="attendancePeriod()"
           (ngModelChange)="onAttendancePeriodChange($event)"
-          class="px-3 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+          class="px-3 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 w-full sm:w-auto"
         >
           <option value="day">Jour</option>
           <option value="week">Semaine</option>
@@ -314,7 +327,7 @@
         </select>
       </div>
 
-      <div class="h-64">
+      <div class="h-48 sm:h-64">
         <canvas #attendanceChart></canvas>
       </div>
     </div>
@@ -323,11 +336,11 @@
   <!-- Info Message for Employees -->
   <div
     *ngIf="!isManager()"
-    class="bg-blue-50 border border-blue-200 rounded-lg p-4"
+    class="bg-blue-50 border border-blue-200 rounded-md p-3 sm:p-4"
   >
-    <div class="flex items-start gap-3">
+    <div class="flex items-start gap-2 sm:gap-3">
       <svg
-        class="w-5 h-5 text-info mt-0.5"
+        class="w-5 h-5 text-info mt-0.5 shrink-0"
         fill="currentColor"
         viewBox="0 0 20 20"
       >
@@ -339,7 +352,7 @@
       </svg>
       <div>
         <p class="text-sm font-medium text-info">Dashboard personnel</p>
-        <p class="text-sm text-dark-600 mt-1">
+        <p class="text-xs sm:text-sm text-dark-600 mt-1">
           Les statistiques affichées concernent uniquement vos données
           personnelles.
         </p>
