@@ -243,15 +243,6 @@ export class ReportsComponent implements OnInit {
       this.selectedPeriod() as ReportPeriod
     );
 
-    {
-        "report_type": "attendance|work_hours|breaks|full",
-        "format": "csv|pdf|excel",
-        "start_date": "YYYY-MM-DD",
-        "end_date": "YYYY-MM-DD",
-        "filter_type": "teams|employees|all",
-        "entity_id": "uuid" (optional)
-    }
-    
     const request = {
       report_type: this.selectedReportType(),
       format: this.selectedExportFormat(),
